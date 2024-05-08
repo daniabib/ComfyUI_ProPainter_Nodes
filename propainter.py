@@ -25,11 +25,20 @@ def imwrite(img, file_path, params=None, auto_mkdir=True):
     return cv2.imwrite(file_path, img, params)
 
 
-def resize_frames(frames: List[Image.Image], size: Tuple[int, int]) -> Tuple[List[Image.Image], Tuple[int, int]]:    
-    process_size = (size[0]-size[0]%8, size[1]-size[1]%8)
-    frames = [f.resize(process_size) for f in frames]
+def resize_frames(frames: List[Image.Image], input_size: Tuple[int, int], output_size: Tuple[int, int]) -> List[Image.Image]:
+    """
+    Resizes each frame in the list to a new size divisible by 8.
 
-    return frames, process_size
+    Returns:
+        List[Image.Image]: A list of resized frames with dimensions divisible by 8.
+    """    
+    process_size = (output_size[0]-output_size[0]%8, output_size[1]-output_size[1]%8)
+    print(f"Process size: {process_size}")
+    
+    if process_size != input_size:
+        frames = [f.resize(process_size) for f in frames]
+
+    return frames
 
 
 def convert_image_to_frames(images: torch.Tensor) -> Tuple[List[Image.Image], Tuple[int, int]]:
@@ -51,9 +60,9 @@ def convert_image_to_frames(images: torch.Tensor) -> Tuple[List[Image.Image], Tu
         frames.append(frame)
         
     # TODO: Handle no frames case?
-    size = frames[0].size
+    image_size = frames[0].size
     
-    return frames, size
+    return frames, image_size
 
     
 def binary_mask(mask, th=0.1):
@@ -281,15 +290,19 @@ class ProPainter:
             
         image = 1.0 - image
         
-        frames, size = convert_image_to_frames(image)
+        frames, input_size = convert_image_to_frames(image)
         print(f"Type of frames: {type(frames)}")
         print(f"Size of frames: {len(frames)}")
         print(f"Type of frames item: {type(frames[0])}")
         print(f"Size of frames item: {frames[0].size}")
         print(f"Channels of frames item: {frames[0].mode}")
-        print(f"Size 1: {size}")
+        print(f"Input image size: {input_size}")
         
-        frames, size, out_size = resize_frames(frames, size)   
+        print(f"WxH: {width, height}")
+        output_size = (width, height)
+        
+        frames = resize_frames(frames, input_size, output_size)   
+        print(f"Size of resized frame: {frames[0].size}")
         
         transform = transforms.Compose([transforms.PILToTensor(), transforms.ConvertImageDtype(torch.float32)]) 
         
