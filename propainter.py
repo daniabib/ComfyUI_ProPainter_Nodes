@@ -25,31 +25,31 @@ def imwrite(img, file_path, params=None, auto_mkdir=True):
     return cv2.imwrite(file_path, img, params)
 
 
-def resize_frames(frames: List[Image.Image], input_size: Tuple[int, int], output_size: Tuple[int, int]) -> List[Image.Image]:
+def resize_images(images: List[Image.Image], input_size: Tuple[int, int], output_size: Tuple[int, int]) -> List[Image.Image]:
     """
-    Resizes each frame in the list to a new size divisible by 8.
+    Resizes each image in the list to a new size divisible by 8.
 
     Returns:
-        List[Image.Image]: A list of resized frames with dimensions divisible by 8.
+        List[Image.Image]: A list of resized images with dimensions divisible by 8.
     """    
     process_size = (output_size[0]-output_size[0]%8, output_size[1]-output_size[1]%8)
     print(f"Process size: {process_size}")
     
     if process_size != input_size:
-        frames = [f.resize(process_size) for f in frames]
+        images = [f.resize(process_size) for f in images]
 
-    return frames
+    return images
 
 
-def convert_image_to_frames(images: torch.Tensor) -> Tuple[List[Image.Image], Tuple[int, int]]:
+def convert_image_to_frames(images: torch.Tensor) -> List[Image.Image]:
     """
-    Convert a batch of PyTorch tensors into a list of PIL Image frames and returns the size of the frames.
-
+    Convert a batch of PyTorch tensors into a list of PIL Image frames 
+    
     Args:
     images (torch.Tensor): A batch of images represented as tensors.
 
     Returns:
-    Tuple[List[Image], Tuple[int, int]]: A tuple containing a list of images converted to PIL Image format and the size (width, height) of the frames.
+    Tuple[List[Image], Tuple[int, int]]: A list of images converted to PIL 
     """
     frames = []
     for image in images:
@@ -58,11 +58,8 @@ def convert_image_to_frames(images: torch.Tensor) -> Tuple[List[Image.Image], Tu
         np_frame = (np_frame * 255).clip(0, 255).astype(np.uint8)
         frame = Image.fromarray(np_frame)
         frames.append(frame)
-        
-    # TODO: Handle no frames case?
-    image_size = frames[0].size
     
-    return frames, image_size
+    return frames
 
     
 def binary_mask(mask, th=0.1):
@@ -72,25 +69,15 @@ def binary_mask(mask, th=0.1):
     return mask
 
 
-def read_masks(masks, length, size, flow_mask_dilates=8, mask_dilates=5):
-    masks_img = []
+def read_masks(masks: torch.Tensor, length, input_size, output_size, flow_mask_dilates=8, mask_dilates=5):
+    mask_imgs = convert_image_to_frames(masks)
+    mask_imgs = resize_images(mask_imgs, input_size, output_size)
     masks_dilated = []
     flow_masks = []
-    
-    for mask in masks:
-        torch_mask = mask.detach().cpu()
-        print(f'Mask shape: {torch_mask.size()}')
-        # torch_mask = torch_mask.permute(1, 0, 2)
-        # print(f'Mask shape: {torch_mask.size()}')
-        
-        np_mask = torch_mask.numpy()
-        np_mask = (np_mask * 255).clip(0, 255).astype(np.uint8)
-        mask = Image.fromarray(np_mask)
-        masks_img.append(mask)
 
-    for mask_img in masks_img:
-        if size is not None:
-            mask_img = mask_img.resize(size, Image.NEAREST)
+    for mask_img in mask_imgs:
+        # if size is not None:
+        #     mask_img = mask_img.resize(size, Image.NEAREST)
         mask_img = np.array(mask_img.convert('L'))
 
         # Dilate 8 pixel so that all known pixel is trustworthy
@@ -109,12 +96,12 @@ def read_masks(masks, length, size, flow_mask_dilates=8, mask_dilates=5):
             mask_img = binary_mask(mask_img).astype(np.uint8)
         masks_dilated.append(Image.fromarray(mask_img * 255))
     
-    if len(masks_img) == 1:
+    if len(mask_imgs) == 1:
         flow_masks = flow_masks * length
         masks_dilated = masks_dilated * length
 
     return flow_masks, masks_dilated
-        
+    # return mask_imgs
     
 def extrapolation(video_ori, scale):
     """Prepares the data for video outpainting.
@@ -251,8 +238,8 @@ class ProPainter:
     RETURN_TYPES = ("IMAGE",)
     #RETURN_NAMES = ("image_output_name",)
 
-    FUNCTION = "test"
-    # FUNCTION = "propainter_inpainting"
+    # FUNCTION = "test"
+    FUNCTION = "propainter_inpainting"
 
     #OUTPUT_NODE = False
 
@@ -265,7 +252,6 @@ class ProPainter:
             mask type: {type(mask)}
             mask size: {mask.size()}
         """)
-        #do some processing on the image, in this example I just invert it
         device = get_device()
         print(device)
         
@@ -290,7 +276,9 @@ class ProPainter:
             
         image = 1.0 - image
         
-        frames, input_size = convert_image_to_frames(image)
+        frames = convert_image_to_frames(image)
+        input_size = frames[0].size
+        
         print(f"Type of frames: {type(frames)}")
         print(f"Size of frames: {len(frames)}")
         print(f"Type of frames item: {type(frames[0])}")
@@ -301,9 +289,18 @@ class ProPainter:
         print(f"WxH: {width, height}")
         output_size = (width, height)
         
-        frames = resize_frames(frames, input_size, output_size)   
+        frames = resize_images(frames, input_size, output_size)   
         print(f"Size of resized frame: {frames[0].size}")
         
+        flow_masks, masks_dilated = read_masks(mask, mask.size(dim=0), input_size, output_size)
+        print(f"Type of flow_masks item: {type(flow_masks[0])}")
+        print(f"Size of flow_masks item: {flow_masks[0].size}")
+        print(f"Mode of flow_masks item: {flow_masks[0].mode}") # L
+        print(f"Type of masks_dilated item: {type(masks_dilated[0])}")
+        print(f"Size of masks_dilated item: {masks_dilated[0].size}")
+        print(f"Mode of masks_dilated item: {masks_dilated[0].mode}") # L
+        
+        ### OUTPUT HANDLING
         transform = transforms.Compose([transforms.PILToTensor(), transforms.ConvertImageDtype(torch.float32)]) 
         
         result_images = [transform(frame) for frame in frames]
@@ -315,12 +312,9 @@ class ProPainter:
         print(f"Type of permuted_images: {type(permuted_images)}")
         print(f"Size of permuted_images item: {permuted_images[0].size()}")
         
-        
         stack_images = torch.stack(permuted_images, dim=0)
         print(f"Size of stack_images: {stack_images.size()}")
         print(f"Size of stack_images item: {stack_images[0].size()}")
-        
-
         
         return (stack_images,)
 
@@ -375,6 +369,9 @@ class ProPainter:
         # args = parser.parse_args()
         
         # NOT IMPLEMENTED ARGPARSE VARIABLES
+        device = get_device()
+        print(device)
+        
         resize_ratio = 1.0
         save_fps = 24
         output = 'results'
@@ -393,41 +390,41 @@ class ProPainter:
         use_half = True if fp16 else False 
         if device == torch.device('cpu'):
             use_half = False
+            
+        image = 1.0 - image
         
-        frames, size = convert_image_to_frames(image)
+        frames = convert_image_to_frames(image)
+        input_size = frames[0].size
+        
         print(f"Type of frames: {type(frames)}")
         print(f"Size of frames: {len(frames)}")
-        print(f"Size 1: {size}")
-      
-        # if not width == -1 and not height == -1:
-        #     size = (width, height)
-        # if not resize_ratio == 1.0:
-        #     size = (int(resize_ratio * size[0]), int(resize_ratio * size[1]))
-
-        # print(f"Size 2: {size}")
-
-        frames, size, out_size = resize_frames(frames, size)    
-
+        print(f"Type of frames item: {type(frames[0])}")
+        print(f"Size of frames item: {frames[0].size}")
+        print(f"Channels of frames item: {frames[0].mode}")
+        print(f"Input image size: {input_size}")
         
-        # fps = save_fps if fps is None else 
+        print(f"WxH: {width, height}")
+        output_size = (width, height)
         
-        # save_root = os.path.join(output, video_name)
-        # if not os.path.exists(save_root):
-        #     os.makedirs(save_root, exist_ok=True)
-
-        if mode == 'video_inpainting':
-            frames_len = len(frames)
-            flow_masks, masks_dilated = read_masks(mask, frames_len, size, 
-                                                flow_mask_dilates=mask_dilation,
-                                                mask_dilates=mask_dilation)
-            w, h = size
+        frames = resize_images(frames, input_size, output_size)   
+        print(f"Size of resized frame: {frames[0].size}")
+        
+        flow_masks, masks_dilated = read_masks(mask, mask.size(dim=0), input_size, output_size)
+        print(f"Type of flow_masks item: {type(flow_masks[0])}")
+        print(f"Size of flow_masks item: {flow_masks[0].size}")
+        print(f"Mode of flow_masks item: {flow_masks[0].mode}") # L
+        print(f"Type of masks_dilated item: {type(masks_dilated[0])}")
+        print(f"Size of masks_dilated item: {masks_dilated[0].size}")
+        print(f"Mode of masks_dilated item: {masks_dilated[0].mode}") # L
+        
+        w, h = frames[0].size
             
-        elif mode == 'video_outpainting':
-            assert scale_h is not None and scale_w is not None, 'Please provide a outpainting scale (s_h, s_w).'
-            frames, flow_masks, masks_dilated, size = extrapolation(frames, (scale_h, scale_w))
-            w, h = size
-        else:
-            raise NotImplementedError
+        # elif mode == 'video_outpainting':
+        #     assert scale_h is not None and scale_w is not None, 'Please provide a outpainting scale (s_h, s_w).'
+        #     frames, flow_masks, masks_dilated, size = extrapolation(frames, (scale_h, scale_w))
+        #     w, h = size
+        # else:
+        #     raise NotImplementedError
         
         # for saving the masked frames or video
         masked_frame_for_save = []
@@ -657,18 +654,38 @@ class ProPainter:
         print(f"Type of comp_frames: {type(comp_frames)}")
         print(f"Type of comp_frames item: {type(comp_frames[0])}")
         print(f"Size of comp_frames item: {comp_frames[0].shape}")
-        # result_images = [torch.from_numpy(frame.astype(np.float32) / 255.0).unsqueeze(0) for frame in comp_frames]
-        torch_frames = [torch.from_numpy(frame.astype(np.float32) / 255).unsqueeze(0) for frame in comp_frames]
-        print(f"Type of torch_frames: {type(torch_frames)}")
-        print(f"Type of torch_frames item: {type(torch_frames[0])}")
-        print(f"Size of torch_frames item: {torch_frames[0].size()}")
+        
+        result_images = [torch.from_numpy(frame.astype(np.float32) / 255.0).unsqueeze(0) for frame in comp_frames]
+
+        # print(f"Type of torch_frames: {type(torch_frames)}")
+        # print(f"Type of torch_frames item: {type(torch_frames[0])}")
+        # print(f"Size of torch_frames item: {torch_frames[0].size()}")
         
         
-        result_images = torch.cat(torch_frames, dim=0)
-        result_images = torch.permute(result_images, (0, 2, 1, 3))
+        # result_images = torch.cat(torch_frames, dim=0)
+        # result_images = torch.permute(result_images, (0, 2, 1, 3))
+        # print(f"Type of result_images: {type(result_images)}")
+        # print(f"Size of result_images: {result_images.size()}")
+        
+        ### OUTPUT HANDLING
+        # transform = transforms.Compose([transforms.PILToTensor(), transforms.ConvertImageDtype(torch.float32)]) 
+        
+        # result_images = [transform(frame) for frame in comp_frames]
         print(f"Type of result_images: {type(result_images)}")
-        print(f"Size of result_images: {result_images.size()}")
+        print(f"Size of result_images item: {result_images[0].size()}")
         
+        # permuted_images = [image.permute(1, 2, 0) for image in result_images]
+        # print(f"Size of permuted_images: {len(permuted_images)}")
+        # print(f"Type of permuted_images: {type(permuted_images)}")
+        # print(f"Size of permuted_images item: {permuted_images[0].size()}")
+        
+        # stack_images = torch.stack(permuted_images, dim=0)
+        stack_images = torch.cat(result_images, dim=0)
+        
+        print(f"Size of stack_images: {stack_images.size()}")
+        print(f"Size of stack_images item: {stack_images[0].size()}")
+        
+        return (stack_images,)
         
         
         # print(comp_frames.size())
