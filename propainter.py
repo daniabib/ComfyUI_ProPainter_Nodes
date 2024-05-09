@@ -18,12 +18,6 @@ from .model.misc import get_device
 
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
 
-def imwrite(img, file_path, params=None, auto_mkdir=True):
-    if auto_mkdir:
-        dir_name = os.path.abspath(os.path.dirname(file_path))
-        os.makedirs(dir_name, exist_ok=True)
-    return cv2.imwrite(file_path, img, params)
-
 
 def resize_images(images: List[Image.Image], input_size: Tuple[int, int], output_size: Tuple[int, int]) -> List[Image.Image]:
     """
@@ -69,7 +63,7 @@ def binary_mask(mask, th=0.1):
     return mask
 
 
-def read_masks(masks: torch.Tensor, length, input_size, output_size, flow_mask_dilates=8, mask_dilates=5):
+def read_masks(masks: torch.Tensor, length, input_size, output_size, flow_mask_dilates=8, mask_dilates=5) -> Tuple[List[Image.Image], List[Image.Image]]:
     mask_imgs = convert_image_to_frames(masks)
     mask_imgs = resize_images(mask_imgs, input_size, output_size)
     masks_dilated = []
