@@ -1,5 +1,4 @@
 import os
-from typing import List, Tuple
 import cv2
 import numpy as np
 import scipy.ndimage
@@ -19,7 +18,9 @@ from .model.misc import get_device
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
 
 
-def resize_images(images: List[Image.Image], input_size: Tuple[int, int], output_size: Tuple[int, int]) -> List[Image.Image]:
+def resize_images(images: list[Image.Image], 
+                  input_size: tuple[int, int], 
+                  output_size: tuple[int, int]) -> list[Image.Image]:
     """
     Resizes each image in the list to a new size divisible by 8.
 
@@ -35,7 +36,7 @@ def resize_images(images: List[Image.Image], input_size: Tuple[int, int], output
     return images
 
 
-def convert_image_to_frames(images: torch.Tensor) -> List[Image.Image]:
+def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
     """
     Convert a batch of PyTorch tensors into a list of PIL Image frames 
     
@@ -63,7 +64,15 @@ def binary_mask(mask, th=0.1):
     return mask
 
 
-def read_masks(masks: torch.Tensor, length, input_size, output_size, flow_mask_dilates=8, mask_dilates=5) -> Tuple[List[Image.Image], List[Image.Image]]:
+def read_masks(masks: torch.Tensor, 
+               input_size: tuple[int, int], 
+               output_size: tuple[int, int], 
+               length, 
+               flow_mask_dilates=8, 
+               mask_dilates=5) -> tuple[list[Image.Image], list[Image.Image]]:
+    """
+    TODO: Check what is the function of length.
+    """
     mask_imgs = convert_image_to_frames(masks)
     mask_imgs = resize_images(mask_imgs, input_size, output_size)
     masks_dilated = []
@@ -229,17 +238,17 @@ class ProPainter:
             },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    #RETURN_NAMES = ("image_output_name",)
+    RETURN_TYPES = ("IMAGE", "MASK", "MASK")
+    RETURN_NAMES = ("IMAGE", "FLOW_MASK", "MASK_DILATE")
 
-    # FUNCTION = "test"
-    FUNCTION = "propainter_inpainting"
+    FUNCTION = "test"
+    # FUNCTION = "propainter_inpainting"
 
     #OUTPUT_NODE = False
 
     CATEGORY = "ProPainter"
 
-    def test(self, image: torch.Tensor, mask: torch.Tensor, width, height, mask_dilation, ref_stride, fp16) -> Tuple[torch.Tensor]:
+    def test(self, image: torch.Tensor, mask: torch.Tensor, width, height, mask_dilation, ref_stride, fp16) -> tuple[torch.Tensor]:
         print(f"""
             image type: {type(image)}
             image size: {image.size()}
@@ -268,7 +277,7 @@ class ProPainter:
         if device == torch.device('cpu'):
             use_half = False
             
-        image = 1.0 - image
+        # image = 1.0 - image
         
         frames = convert_image_to_frames(image)
         input_size = frames[0].size
@@ -286,7 +295,7 @@ class ProPainter:
         frames = resize_images(frames, input_size, output_size)   
         print(f"Size of resized frame: {frames[0].size}")
         
-        flow_masks, masks_dilated = read_masks(mask, mask.size(dim=0), input_size, output_size)
+        flow_masks, masks_dilated = read_masks(mask,  input_size, output_size, mask.size(dim=0))
         print(f"Type of flow_masks item: {type(flow_masks[0])}")
         print(f"Size of flow_masks item: {flow_masks[0].size}")
         print(f"Mode of flow_masks item: {flow_masks[0].mode}") # L
@@ -294,14 +303,134 @@ class ProPainter:
         print(f"Size of masks_dilated item: {masks_dilated[0].size}")
         print(f"Mode of masks_dilated item: {masks_dilated[0].mode}") # L
         
+        ori_frames = [np.array(f).astype(np.uint8) for f in frames] # NOT USED SO FAR
+        frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1    
+        flow_masks: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
+        masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
+        frames, flow_masks, masks_dilated = frames.to(device), flow_masks.to(device), masks_dilated.to(device)
+        
+        print(f"--------AFTER to_tensor() transformation")
+        print(f"Type of frames item: {type(frames[0])}")
+        print(f"Size of frames item: {frames[0].size()}")
+        print(f"Type of flow_masks item: {type(flow_masks[0])}")
+        print(f"Size of flow_masks item: {flow_masks[0].size()}")
+        print(f"Type of masks_dilated item: {type(masks_dilated[0])}")
+        print(f"Size of masks_dilated item: {masks_dilated[0].size()}")
+        
+        ##############################################
+        # set up RAFT and flow competition model
+        ##############################################
+        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'raft-things.pth'), 
+                                        model_dir='weights', progress=True, file_name=None)
+        fix_raft = RAFT_bi(ckpt_path, device)
+        
+        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'recurrent_flow_completion.pth'), 
+                                        model_dir='weights', progress=True, file_name=None)
+        fix_flow_complete = RecurrentFlowCompleteNet(ckpt_path)
+        for p in fix_flow_complete.parameters():
+            p.requires_grad = False
+        fix_flow_complete.to(device)
+        fix_flow_complete.eval()
+    
+        ##############################################
+        # set up ProPainter model
+        ##############################################
+        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'ProPainter.pth'), 
+                                        model_dir='weights', progress=True, file_name=None)
+        model = InpaintGenerator(model_path=ckpt_path).to(device)
+        model.eval()    
+        
+        
+        ##############################################
+        # ProPainter inference
+        ##############################################
+        video_length = frames.size(dim=1)
+        print(f'\nProcessing  {video_length} frames...')
+        with torch.no_grad():
+            # ---- compute flow ----
+            if frames.size(dim=-1) <= 640: 
+                short_clip_len = 12
+            elif frames.size(dim=-1) <= 720: 
+                short_clip_len = 8
+            elif frames.size(dim=-1) <= 1280:
+                short_clip_len = 4
+            else:
+                short_clip_len = 2
+        
+            # use fp32 for RAFT
+            """
+            Optical Flow Computation: The fix_raft function is called in batches defined by short_clip_len. If the video has more frames than short_clip_len, it processes the frames in chunks to estimate the forward (flows_f) and backward (flows_b) optical flows. These flows are then concatenated to form gt_flows_f and gt_flows_b.
+            """
+            if frames.size(dim=1) > short_clip_len:
+                gt_flows_f_list, gt_flows_b_list = [], []
+                for chunck in range(0, video_length, short_clip_len):
+                    end_f = min(video_length, chunck + short_clip_len)
+                    if chunck == 0:
+                        flows_f, flows_b = fix_raft(frames[:,chunck:end_f], iters=raft_iter)
+                    else:
+                        flows_f, flows_b = fix_raft(frames[:,chunck-1:end_f], iters=raft_iter)
+                    
+                    gt_flows_f_list.append(flows_f)
+                    gt_flows_b_list.append(flows_b)
+                    torch.cuda.empty_cache()
+                    
+                gt_flows_f = torch.cat(gt_flows_f_list, dim=1)
+                gt_flows_b = torch.cat(gt_flows_b_list, dim=1)
+                gt_flows_bi = (gt_flows_f, gt_flows_b)
+            else:
+                gt_flows_bi = fix_raft(frames, iters=raft_iter)
+                torch.cuda.empty_cache()
+                
+            if use_half:
+                frames, flow_masks, masks_dilated = frames.half(), flow_masks.half(), masks_dilated.half()
+                gt_flows_bi = (gt_flows_bi[0].half(), gt_flows_bi[1].half())
+                fix_flow_complete = fix_flow_complete.half()
+                model = model.half()
+            
+            
+            # ---- complete flow ----
+            """
+            Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
+            """    
+            flow_length = gt_flows_bi[0].size(1)
+            if flow_length > subvideo_length:
+                pred_flows_f, pred_flows_b = [], []
+                pad_len = 5
+                for f in range(0, flow_length, subvideo_length):
+                    s_f = max(0, f - pad_len)
+                    e_f = min(flow_length, f + subvideo_length + pad_len)
+                    pad_len_s = max(0, f) - s_f
+                    pad_len_e = e_f - min(flow_length, f + subvideo_length)
+                    pred_flows_bi_sub, _ = fix_flow_complete.forward_bidirect_flow(
+                        (gt_flows_bi[0][:, s_f:e_f], gt_flows_bi[1][:, s_f:e_f]), 
+                        flow_masks[:, s_f:e_f+1])
+                    pred_flows_bi_sub = fix_flow_complete.combine_flow(
+                        (gt_flows_bi[0][:, s_f:e_f], gt_flows_bi[1][:, s_f:e_f]), 
+                        pred_flows_bi_sub, 
+                        flow_masks[:, s_f:e_f+1])
+
+                    pred_flows_f.append(pred_flows_bi_sub[0][:, pad_len_s:e_f-s_f-pad_len_e])
+                    pred_flows_b.append(pred_flows_bi_sub[1][:, pad_len_s:e_f-s_f-pad_len_e])
+                    torch.cuda.empty_cache()
+                    
+                pred_flows_f = torch.cat(pred_flows_f, dim=1)
+                pred_flows_b = torch.cat(pred_flows_b, dim=1)
+                pred_flows_bi = (pred_flows_f, pred_flows_b)
+            else:
+                pred_flows_bi, _ = fix_flow_complete.forward_bidirect_flow(gt_flows_bi, flow_masks)
+                pred_flows_bi = fix_flow_complete.combine_flow(gt_flows_bi, pred_flows_bi, flow_masks)
+                torch.cuda.empty_cache()
+                
+        
+        
         ### OUTPUT HANDLING
         transform = transforms.Compose([transforms.PILToTensor(), transforms.ConvertImageDtype(torch.float32)]) 
         
-        result_images = [transform(frame) for frame in frames]
-        print(f"Type of result_images: {type(result_images)}")
-        print(f"Size of result_images item: {result_images[0].size()}")
+        tensor_images = [transform(frame) for frame in frames]
+        print(f"Type of tensor_images: {type(tensor_images)}")
+        print(f"Size of tensor_images item: {tensor_images[0].size()}")
         
-        permuted_images = [image.permute(1, 2, 0) for image in result_images]
+        permuted_images = [image.permute(1, 2, 0) for image in tensor_images]
         print(f"Size of permuted_images: {len(permuted_images)}")
         print(f"Type of permuted_images: {type(permuted_images)}")
         print(f"Size of permuted_images item: {permuted_images[0].size()}")
@@ -310,9 +439,26 @@ class ProPainter:
         print(f"Size of stack_images: {stack_images.size()}")
         print(f"Size of stack_images item: {stack_images[0].size()}")
         
-        return (stack_images,)
+        tensor_flow_mask = [transform(frame_mask) for frame_mask in flow_masks]
+        print(f"Type of tensor_flow_mask: {type(tensor_flow_mask)}")
+        print(f"Size of tensor_flow_mask item: {tensor_flow_mask[0].size()}")
+        
+        stack_flow_masks = torch.stack(tensor_flow_mask, dim=0)
+        print(f"Size of stack_flow_masks: {stack_flow_masks.size()}")
+        print(f"Size of stack_flow_masks item: {stack_flow_masks[0].size()}")
+        
+        tensor_mask_dilated = [transform(frame_mask) for frame_mask in masks_dilated]
+        print(f"Type of tensor_mask_dilated: {type(tensor_mask_dilated)}")
+        print(f"Size of tensor_mask_dilated item: {tensor_mask_dilated[0].size()}")
+        
+        stack_dilated_masks = torch.stack(tensor_mask_dilated, dim=0)
+        print(f"Size of stack_dilated_masks: {stack_dilated_masks.size()}")
+        print(f"Size of stack_dilated_masks item: {stack_dilated_masks[0].size()}")
+        
+        return (stack_images, stack_flow_masks, stack_dilated_masks)
+        # return (frames, flow_masks, masks_dilated)
 
-    def propainter_inpainting(self, image, mask, width, height, mask_dilation, ref_stride, fp16) -> Tuple[torch.Tensor]:
+    def propainter_inpainting(self, image, mask, width, height, mask_dilation, ref_stride, fp16) -> tuple[torch.Tensor]:
          # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"""
             image type: {type(image)}
@@ -403,7 +549,7 @@ class ProPainter:
         frames = resize_images(frames, input_size, output_size)   
         print(f"Size of resized frame: {frames[0].size}")
         
-        flow_masks, masks_dilated = read_masks(mask, mask.size(dim=0), input_size, output_size)
+        flow_masks, masks_dilated = read_masks(mask, input_size, output_size, mask.size(dim=0))
         print(f"Type of flow_masks item: {type(flow_masks[0])}")
         print(f"Size of flow_masks item: {flow_masks[0].size}")
         print(f"Mode of flow_masks item: {flow_masks[0].mode}") # L
@@ -421,17 +567,17 @@ class ProPainter:
         #     raise NotImplementedError
         
         # for saving the masked frames or video
-        masked_frame_for_save = []
-        for i in range(len(frames)):
-            mask_ = np.expand_dims(np.array(masks_dilated[i]),2).repeat(3, axis=2)/255.
-            img = np.array(frames[i])
-            green = np.zeros([h, w, 3]) 
-            green[:,:,1] = 255
-            alpha = 0.6
-            # alpha = 1.0
-            fuse_img = (1-alpha)*img + alpha*green
-            fuse_img = mask_ * fuse_img + (1-mask_)*img
-            masked_frame_for_save.append(fuse_img.astype(np.uint8))
+        # masked_frame_for_save = []
+        # for i in range(len(frames)):
+        #     mask_ = np.expand_dims(np.array(masks_dilated[i]),2).repeat(3, axis=2)/255.
+        #     img = np.array(frames[i])
+        #     green = np.zeros([h, w, 3]) 
+        #     green[:,:,1] = 255
+        #     alpha = 0.6
+        #     # alpha = 1.0
+        #     fuse_img = (1-alpha)*img + alpha*green
+        #     fuse_img = mask_ * fuse_img + (1-mask_)*img
+        #     masked_frame_for_save.append(fuse_img.astype(np.uint8))
 
         frames_inp = [np.array(f).astype(np.uint8) for f in frames]
         frames = to_tensors()(frames).unsqueeze(0) * 2 - 1    
