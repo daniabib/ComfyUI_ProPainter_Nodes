@@ -7,7 +7,6 @@ from tqdm import tqdm
 from icecream import ic
 
 import torch
-import torchvision.transforms as transforms
 from torchvision.transforms.functional import to_pil_image
 
 from .model.modules.flow_comp_raft import RAFT_bi
@@ -20,6 +19,9 @@ from .model.misc import get_device
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
 
 def imwrite(img, file_path, params=None, auto_mkdir=True):
+    """
+    For debugging.
+    """
     if auto_mkdir:
         dir_name = os.path.abspath(os.path.dirname(file_path))
         os.makedirs(dir_name, exist_ok=True)
@@ -28,12 +30,12 @@ def imwrite(img, file_path, params=None, auto_mkdir=True):
 
 def resize_images(images: list[Image.Image], 
                   input_size: tuple[int, int], 
-                  output_size: tuple[int, int]) -> list[Image.Image]:
+                  output_size: tuple[int, int]) -> tuple[list[Image.Image], tuple[int, int]]:
     """
     Resizes each image in the list to a new size divisible by 8.
 
     Returns:
-        List[Image.Image]: A list of resized images with dimensions divisible by 8.
+        A list of resized images with dimensions divisible by 8 and process size.
     """    
     process_size = (output_size[0]-output_size[0]%8, output_size[1]-output_size[1]%8)
     ic(process_size)
@@ -62,12 +64,7 @@ def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
         frame = Image.fromarray(np_frame)
         frames.append(frame)
     
-    # if images.dtype == torch.float32:
-    #     # Convert from 0-1 to 0-255 range if necessary
-    #     video_tensor = (images * 255).byte()
-    #     ic(video_tensor.size())
-    # # Convert tensor to list of PIL Images for compatibility with the rest of your pipeline
-    # frames = [Image.fromarray(frame.numpy().transpose(1, 2, 0)) for frame in video_tensor]
+    # For Debbuging
     save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
     for i, mask in enumerate(frames):
         mask.save(os.path.join(save_root, 'test_pil_frames', f"pil_frame_{i}.png"))
@@ -85,68 +82,30 @@ def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
     List[Image.Image]: A list of images converted to PIL 
     """
     frames = []
-    for image in images:
-        # if image.ndim == 3 and image.shape[0] in [1, 3]:  # Check for channel-first format
-        ic("image before permute:", image.size())
-        # image = image.permute(1, 2, 0)  # Convert to H x W x C for PIL
-        # ic("image after permute:", image.size())
-        
+    for image in images:        
         image = image.detach().cpu()
 
         # Adjust the scaling based on the data type
         if image.dtype == torch.float32:
-            image = (image * 255).clamp(0, 255).byte()  # Scale float images from 0-1 to 0-255
+            image = (image * 255).clamp(0, 255).byte()
 
-        image = 255 - image
-        frame = to_pil_image(image)
+        frame: Image.Image = to_pil_image(image)
         frames.append(frame)
-        
+    
+    # For Debugging
     save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
     for i, mask in enumerate(frames):
         mask.save(os.path.join(save_root, 'test_pil_masks', f"pil_mask_{i}.png"))
     
     return frames
     
-def binary_mask(mask, th=0.1):
+def binary_mask(mask: np.ndarray, 
+                th: float = 0.1) -> np.ndarray:
     mask[mask>th] = 1
     mask[mask<=th] = 0
     
     return mask
 
-def read_mask_from_tensor(mask_tensor, size, flow_mask_dilates=8, mask_dilates=5):
-    # Resize masks if needed, ensure correct data type and apply dilations
-    resized_masks = []
-    flow_masks = []
-    masks_dilated = []
-    
-    # mask_tensor = mask_tensor.permute(0, 3, 1, 2)
-    # Handle tensor resizing and dilation
-    for mask in mask_tensor:
-        if size:
-            # Resize mask to target size
-            mask = torch.nn.functional.interpolate(mask.unsqueeze(0).float().unsqueeze(0),  # Add batch and channel dimension
-                                                   size=size, mode='nearest').squeeze()  # Remove batch and channel dimension after resize
-        mask_np = mask.cpu().numpy().astype(np.uint8)  # Ensure it's numpy array of type uint8
-
-        # Dilate masks for flow calculations
-        if flow_mask_dilates > 0:
-            flow_mask_np = scipy.ndimage.binary_dilation(mask_np, iterations=flow_mask_dilates).astype(np.uint8)
-        else:
-            flow_mask_np = binary_mask(mask_np)
-        flow_masks.append(torch.from_numpy(flow_mask_np))
-
-        # Dilate masks for general mask usage
-        if mask_dilates > 0:
-            mask_dilated_np = scipy.ndimage.binary_dilation(mask_np, iterations=mask_dilates).astype(np.uint8)
-        else:
-            mask_dilated_np = binary_mask(mask_np)
-        masks_dilated.append(torch.from_numpy(mask_dilated_np))
-        
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(flow_masks):
-        mask.save(os.path.join(save_root, 'mask_frames', f"flow_mask_{i}.png"))
-
-    return flow_masks, masks_dilated
 
 def read_masks(masks: torch.Tensor, 
                input_size: tuple[int, int], 
@@ -155,7 +114,7 @@ def read_masks(masks: torch.Tensor,
                flow_mask_dilates=8, 
                mask_dilates=5) -> tuple[list[Image.Image], list[Image.Image]]:
     """
-    TODO: Mask image is inverted and diffent from input.
+    TODO: Docstring.
     """
     mask_imgs = convert_mask_to_frames(masks)
     mask_imgs, _ = resize_images(mask_imgs, input_size, output_size)
@@ -163,23 +122,18 @@ def read_masks(masks: torch.Tensor,
     flow_masks = []
 
     for mask_img in mask_imgs:
-        # if size is not None:
-        #     mask_img = mask_img.resize(size, Image.NEAREST)
         mask_img = np.array(mask_img.convert('L'))
-        ic("Initial mask values:")
-        ic( np.unique(mask_img))  
-        ic(mask_img.shape)
+        # ic("Initial mask values:")
+        # ic( np.unique(mask_img))  
+        # ic(mask_img.shape)
 
         # Dilate 8 pixel so that all known pixel is trustworthy
         if flow_mask_dilates > 0:
             flow_mask_img = scipy.ndimage.binary_dilation(mask_img, iterations=flow_mask_dilates).astype(np.uint8)
         else:
             flow_mask_img = binary_mask(mask_img).astype(np.uint8)
-        # Close the small holes inside the foreground objects
-        # flow_mask_img = cv2.morphologyEx(flow_mask_img, cv2.MORPH_CLOSE, np.ones((21, 21),np.uint8)).astype(bool)
-        # flow_mask_img = scipy.ndimage.binary_fill_holes(flow_mask_img).astype(np.uint8)
-        ic("Flow mask values after dilation:")
-        ic(np.unique(flow_mask_img))
+        # ic("Flow mask values after dilation:")
+        # ic(np.unique(flow_mask_img))
         flow_masks.append(Image.fromarray(flow_mask_img * 255))
         
         if mask_dilates > 0:
@@ -192,6 +146,7 @@ def read_masks(masks: torch.Tensor,
         flow_masks = flow_masks * length
         masks_dilated = masks_dilated * length
 
+    # For Debugging
     save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
     for i, mask in enumerate(flow_masks):
         mask.save(os.path.join(save_root, 'mask_frames', f"flow_mask_{i}.png"))
@@ -218,53 +173,14 @@ def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=
 
 class ProPainter:
     """
-    A example node
+    ProPainterInpainter
 
-    Class methods
-    -------------
-    INPUT_TYPES (dict): 
-        Tell the main program input parameters of nodes.
-    IS_CHANGED:
-        optional method to control when the node is re executed.
-
-    Attributes
-    ----------
-    RETURN_TYPES (`tuple`): 
-        The type of each element in the output tulple.
-    RETURN_NAMES (`tuple`):
-        Optional: The name of each output in the output tulple.
-    FUNCTION (`str`):
-        The name of the entry-point method. For example, if `FUNCTION = "execute"` then it will run Example().execute()
-    OUTPUT_NODE ([`bool`]):
-        If this node is an output node that outputs a result/image from the graph. The SaveImage node is an example.
-        The backend iterates on these output nodes and tries to execute all their parents if their parent graph is properly connected.
-        Assumed to be False if not present.
-    CATEGORY (`str`):
-        The category the node should appear in the UI.
-    execute(s) -> tuple || None:
-        The entry point method. The name of this method must be the same as the value of property `FUNCTION`.
-        For example, if `FUNCTION = "execute"` then this method's name must be `execute`, if `FUNCTION = "foo"` then it must be `foo`.
     """
     def __init__(self):
         pass
     
     @classmethod
     def INPUT_TYPES(s):
-        """
-            Return a dictionary which contains config for all input fields.
-            Some types (string): "MODEL", "VAE", "CLIP", "CONDITIONING", "LATENT", "IMAGE", "INT", "STRING", "FLOAT".
-            Input types "INT", "STRING" or "FLOAT" are special values for fields on the node.
-            The type can be a list for selection.
-
-            Returns: `dict`:
-                - Key input_fields_group (`string`): Can be either required, hidden or optional. A node class must have property `required`
-                - Value input_fields (`dict`): Contains input fields config:
-                    * Key field_name (`string`): Name of a entry-point method's argument
-                    * Value field_config (`tuple`):
-                        + First value is a string indicate the type of field or a list for selection.
-                        + Secound value is a config for type "INT", "STRING" or "FLOAT".
-
-        """
         return {
             "required": {
                 "image": ("IMAGE",), # --video
@@ -277,60 +193,77 @@ class ProPainter:
                     "default": 360,
                     "min": 0,
                     "max": 2560}), # --height
+                "mask_dilates": ("INT", {
+                    "default": 5,
+                    "min": 0,
+                    "max": 100}), # --mask_dilates
                 "flow_mask_dilates": ("INT", {
                     "default": 8,
                     "min": 0,
-                    "max": 10}), # --flow_mask_dilates
+                    "max": 100}), # arg dont exist on original code
                 "ref_stride": ("INT", {
                     "default": 10,
-                    "min": 0,
+                    "min": 1,
                     "max": 100}), # --ref_stride
+                "neighbor_length": ("INT", {
+                    "default": 10,
+                    "min": 2,
+                    "max": 300}), # --neighbor_length
+                "subvideo_length": ("INT", {
+                    "default": 80,
+                    "min": 0,
+                    "max": 300}), # --subvideo_length
+                "raft_iter": ("INT", {
+                    "default": 20,
+                    "min": 0,
+                    "max": 100}), # --raft_iter
                 "fp16": (["enable", "disable"],), #--fp16
             },
         }
 
-    RETURN_TYPES = ("IMAGE", "MASK", "MASK")
-    RETURN_NAMES = ("IMAGE", "FLOW_MASK", "MASK_DILATE")
+    RETURN_TYPES = ("IMAGE", "MASK", "MASK",)
+    RETURN_NAMES = ("IMAGE", "FLOW_MASK", "MASK_DILATE",)
 
-    FUNCTION = "test"
-    # FUNCTION = "propainter_inpainting"
+    # FUNCTION = "test"
+    FUNCTION = "propainter_inpainting"
 
     #OUTPUT_NODE = False
 
     CATEGORY = "ProPainter"
 
-    def test(self, image: torch.Tensor, mask: torch.Tensor, width, height, flow_mask_dilates, ref_stride, fp16) -> tuple[torch.Tensor]:
-        print(f"""
-            image type: {type(image)}
-            image size: {image.size()}
-            mask type: {type(mask)}
-            mask size: {mask.size()}
-        """)
+    def propainter_inpainting(self, 
+                              image: torch.Tensor, 
+                              mask: torch.Tensor, 
+                              width: int, 
+                              height: int,
+                              mask_dilates: int,
+                              flow_mask_dilates: int, 
+                              ref_stride: int,
+                              neighbor_length: int,
+                              subvideo_length: int,
+                              raft_iter: int,
+                              fp16) -> tuple[torch.Tensor]:
+        ic({type(image)})
+        ic({image.size()})
+        ic({type(mask)})
+        ic({mask.size()})
+        
+        ic(width)
+        ic(height)
+        ic(mask_dilates)
+        ic(flow_mask_dilates)
+        ic(ref_stride)
+        ic(neighbor_length)
+        ic(fp16)
+        
         device = get_device()
-        print(device)
-        
-        resize_ratio = 1.0
-        save_fps = 24
-        output = 'results'
-        mode = 'video_inpainting'
-        scale_h = 1.0
-        scale_w = 1.2
-        raft_iter = 20
-        subvideo_length = 80
-        neighbor_length = 10
-        save_frames = False
-        
-        # OLD READ FRAME FUNCTION VARIABLES
-        video_name = "test"
+        ic(device)
         
         # Use fp16 precision during inference to reduce running memory cost
         use_half = True if fp16 else False 
         if device == torch.device('cpu'):
             use_half = False
-            
-        # image = 1.0 - image
-        
-        # frames = convert_image_to_frames(image.permute(0, 3, 1, 2))
+
         frames = convert_image_to_frames(image)
         input_size = frames[0].size
         
@@ -344,11 +277,11 @@ class ProPainter:
         output_size = (width, height)
         
         frames, process_size = resize_images(frames, input_size, output_size)   
-        print(f"Size of resized frame: {frames[0].size}")
+        ic(frames[0].size)
         
         process_width, process_height = process_size
         
-        flow_masks, masks_dilated = read_masks(mask,  input_size, output_size, mask.size(dim=0), flow_mask_dilates)
+        flow_masks, masks_dilated = read_masks(mask,  input_size, output_size, mask.size(dim=0), flow_mask_dilates, mask_dilates)
         # flow_masks, masks_dilated = read_mask_from_tensor(mask, input_size, output_size, mask.size(dim=0))
 
         ic(type(flow_masks[0]))
@@ -588,47 +521,14 @@ class ProPainter:
                         
                     comp_frames[idx] = comp_frames[idx].astype(np.uint8)
             
-          
-            
             torch.cuda.empty_cache()
             
         ic(type(comp_frames[0]))
         ic(comp_frames[0].shape)
         ic(comp_frames[0].dtype)
         
-        ### OUTPUT HANDLING
-        # transform = transforms.Compose([transforms.PILToTensor(), transforms.ConvertImageDtype(torch.float32)]) 
         
-        # tensor_images = [transform(frame) for frame in frames]
-        # print(f"Type of tensor_images: {type(tensor_images)}")
-        # print(f"Size of tensor_images item: {tensor_images[0].size()}")
-        
-        # permuted_images = [image.permute(1, 2, 0) for image in tensor_images]
-        # print(f"Size of permuted_images: {len(permuted_images)}")
-        # print(f"Type of permuted_images: {type(permuted_images)}")
-        # print(f"Size of permuted_images item: {permuted_images[0].size()}")
-        
-        # stack_images = torch.stack(permuted_images, dim=0)
-        # print(f"Size of stack_images: {stack_images.size()}")
-        # print(f"Size of stack_images item: {stack_images[0].size()}")
-        
-        # tensor_flow_mask = [transform(frame_mask) for frame_mask in flow_masks]
-        # print(f"Type of tensor_flow_mask: {type(tensor_flow_mask)}")
-        # print(f"Size of tensor_flow_mask item: {tensor_flow_mask[0].size()}")
-        
-        # stack_flow_masks = torch.stack(tensor_flow_mask, dim=0)
-        # print(f"Size of stack_flow_masks: {stack_flow_masks.size()}")
-        # print(f"Size of stack_flow_masks item: {stack_flow_masks[0].size()}")
-        
-        # tensor_mask_dilated = [transform(frame_mask) for frame_mask in masks_dilated]
-        # print(f"Type of tensor_mask_dilated: {type(tensor_mask_dilated)}")
-        # print(f"Size of tensor_mask_dilated item: {tensor_mask_dilated[0].size()}")
-        
-        # stack_dilated_masks = torch.stack(tensor_mask_dilated, dim=0)
-        # print(f"Size of stack_dilated_masks: {stack_dilated_masks.size()}")
-        # print(f"Size of stack_dilated_masks item: {stack_dilated_masks[0].size()}")
-        
-        # output_frames = frames.squeeze().permute(0, 2, 3, 1)
+        # For Debugging
         for idx in range(video_length):
             f = comp_frames[idx]
             f = cv2.resize(f, process_size, interpolation = cv2.INTER_CUBIC)
@@ -653,22 +553,7 @@ class ProPainter:
         
         # return (stack_images, stack_flow_masks, stack_dilated_masks)
         return (output_frames, output_flow_masks, output_masks_dilated)
-
-
-    """
-        The node will always be re executed if any of the inputs change but
-        this method can be used to force the node to execute again even when the inputs don't change.
-        You can make this node return a number or a string. This value will be compared to the one returned the last time the node was
-        executed, if it is different the node will be executed again.
-        This method is used in the core repo for the LoadImage node where they return the image hash as a string, if the image hash
-        changes between executions the LoadImage node is executed again.
-    """
-    #@classmethod
-    #def IS_CHANGED(s, image, string_field, int_field, float_field, print_to_screen):
-    #    return ""
-
-# Set the web directory, any .js file in that directory will be loaded by the frontend as a frontend extension
-# WEB_DIRECTORY = "./somejs"
+    
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
