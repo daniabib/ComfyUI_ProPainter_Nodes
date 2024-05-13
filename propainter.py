@@ -1,28 +1,20 @@
 import os
 import cv2
 import numpy as np
-# import scipy.ndimage
-# from PIL import Image
+
 from tqdm import tqdm
 from icecream import ic
 
 import torch
 
-from .model.modules.flow_comp_raft import RAFT_bi
-from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
-from .model.propainter import InpaintGenerator
-from .utils.download_util import load_file_from_url
-from .utils.img_util import imwrite # For Debbuging only
 from .utils.image_util import resize_images, convert_image_to_frames, read_masks
+from .utils.model_utils import load_raft_model, load_recurrent_flow_model, load_inpaint_model
 from .core.utils import to_tensors
 from .model.misc import get_device
 
 from .utils.img_util import imwrite # For Debbuging only
 
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
-
-    
-
 
 
 def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=-1):
@@ -44,7 +36,7 @@ def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=
 
 class ProPainter:
     """
-    ProPainterInpainter
+    ProPainter Inpainter
 
     """
     def __init__(self):
@@ -95,7 +87,6 @@ class ProPainter:
     RETURN_TYPES = ("IMAGE", "MASK", "MASK",)
     RETURN_NAMES = ("IMAGE", "FLOW_MASK", "MASK_DILATE",)
 
-    # FUNCTION = "test"
     FUNCTION = "propainter_inpainting"
 
     #OUTPUT_NODE = False
@@ -153,7 +144,6 @@ class ProPainter:
         process_width, process_height = process_size
         
         flow_masks, masks_dilated = read_masks(mask,  input_size, output_size, mask.size(dim=0), flow_mask_dilates, mask_dilates)
-        # flow_masks, masks_dilated = read_mask_from_tensor(mask, input_size, output_size, mask.size(dim=0))
 
         ic(type(flow_masks[0]))
         ic(flow_masks[0].size)
@@ -166,8 +156,6 @@ class ProPainter:
         frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1    
         flow_masks: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
         masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
-        # flow_masks = torch.stack(flow_masks)
-        # masks_dilated = torch.stack(masks_dilated)
         frames, flow_masks, masks_dilated = frames.to(device), flow_masks.to(device), masks_dilated.to(device)
         
         ic("-------- AFTER to_tensor() transformation --------")
@@ -177,30 +165,10 @@ class ProPainter:
         ic(flow_masks.size())
         ic(type(masks_dilated))
         ic(masks_dilated.size())
-        
-        ##############################################
-        # set up RAFT and flow competition model
-        ##############################################
-        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'raft-things.pth'), 
-                                        model_dir='weights', progress=True, file_name=None)
-        fix_raft = RAFT_bi(ckpt_path, device)
-        
-        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'recurrent_flow_completion.pth'), 
-                                        model_dir='weights', progress=True, file_name=None)
-        fix_flow_complete = RecurrentFlowCompleteNet(ckpt_path)
-        for p in fix_flow_complete.parameters():
-            p.requires_grad = False
-        fix_flow_complete.to(device)
-        fix_flow_complete.eval()
-    
-        ##############################################
-        # set up ProPainter model
-        ##############################################
-        ckpt_path = load_file_from_url(url=os.path.join(pretrain_model_url, 'ProPainter.pth'), 
-                                        model_dir='weights', progress=True, file_name=None)
-        model = InpaintGenerator(model_path=ckpt_path).to(device)
-        model.eval()    
-        
+
+        fix_raft = load_raft_model(device)         
+        fix_flow_complete = load_recurrent_flow_model(device)
+        model = load_inpaint_model(device)
         
         ##############################################
         # ProPainter inference
