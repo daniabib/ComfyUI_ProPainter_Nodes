@@ -1,157 +1,28 @@
 import os
 import cv2
 import numpy as np
-import scipy.ndimage
-from PIL import Image
+# import scipy.ndimage
+# from PIL import Image
 from tqdm import tqdm
 from icecream import ic
 
 import torch
-from torchvision.transforms.functional import to_pil_image
 
 from .model.modules.flow_comp_raft import RAFT_bi
 from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from .model.propainter import InpaintGenerator
 from .utils.download_util import load_file_from_url
+from .utils.img_util import imwrite # For Debbuging only
+from .utils.image_util import resize_images, convert_image_to_frames, read_masks
 from .core.utils import to_tensors
 from .model.misc import get_device
 
+from .utils.img_util import imwrite # For Debbuging only
+
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
 
-def imwrite(img, file_path, params=None, auto_mkdir=True):
-    """
-    For debugging.
-    """
-    if auto_mkdir:
-        dir_name = os.path.abspath(os.path.dirname(file_path))
-        os.makedirs(dir_name, exist_ok=True)
-    return cv2.imwrite(file_path, img, params)
-
-
-def resize_images(images: list[Image.Image], 
-                  input_size: tuple[int, int], 
-                  output_size: tuple[int, int]) -> tuple[list[Image.Image], tuple[int, int]]:
-    """
-    Resizes each image in the list to a new size divisible by 8.
-
-    Returns:
-        A list of resized images with dimensions divisible by 8 and process size.
-    """    
-    process_size = (output_size[0]-output_size[0]%8, output_size[1]-output_size[1]%8)
-    ic(process_size)
     
-    if process_size != input_size:
-        images = [f.resize(process_size) for f in images]
 
-    return images, process_size
-
-
-def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """
-    Convert a batch of PyTorch tensors into a list of PIL Image frames 
-    
-    Args:
-    images (torch.Tensor): A batch of images represented as tensors.
-
-    Returns:
-    List[Image]: A list of images converted to PIL 
-    """
-    frames = []
-    for image in images:
-        torch_frame = image.detach().cpu()
-        np_frame = torch_frame.numpy()
-        np_frame = (np_frame * 255).clip(0, 255).astype(np.uint8)
-        frame = Image.fromarray(np_frame)
-        frames.append(frame)
-    
-    # For Debbuging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(frames):
-        mask.save(os.path.join(save_root, 'test_pil_frames', f"pil_frame_{i}.png"))
-    
-    return frames
-
-def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """
-    Convert a batch of PyTorch tensors into a list of PIL Image frames 
-    
-    Args:
-    images (torch.Tensor): A batch of images represented as tensors.
-
-    Returns:
-    List[Image.Image]: A list of images converted to PIL 
-    """
-    frames = []
-    for image in images:        
-        image = image.detach().cpu()
-
-        # Adjust the scaling based on the data type
-        if image.dtype == torch.float32:
-            image = (image * 255).clamp(0, 255).byte()
-
-        frame: Image.Image = to_pil_image(image)
-        frames.append(frame)
-    
-    # For Debugging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(frames):
-        mask.save(os.path.join(save_root, 'test_pil_masks', f"pil_mask_{i}.png"))
-    
-    return frames
-    
-def binary_mask(mask: np.ndarray, 
-                th: float = 0.1) -> np.ndarray:
-    mask[mask>th] = 1
-    mask[mask<=th] = 0
-    
-    return mask
-
-
-def read_masks(masks: torch.Tensor, 
-               input_size: tuple[int, int], 
-               output_size: tuple[int, int], 
-               length, 
-               flow_mask_dilates=8, 
-               mask_dilates=5) -> tuple[list[Image.Image], list[Image.Image]]:
-    """
-    TODO: Docstring.
-    """
-    mask_imgs = convert_mask_to_frames(masks)
-    mask_imgs, _ = resize_images(mask_imgs, input_size, output_size)
-    masks_dilated = []
-    flow_masks = []
-
-    for mask_img in mask_imgs:
-        mask_img = np.array(mask_img.convert('L'))
-        # ic("Initial mask values:")
-        # ic( np.unique(mask_img))  
-        # ic(mask_img.shape)
-
-        # Dilate 8 pixel so that all known pixel is trustworthy
-        if flow_mask_dilates > 0:
-            flow_mask_img = scipy.ndimage.binary_dilation(mask_img, iterations=flow_mask_dilates).astype(np.uint8)
-        else:
-            flow_mask_img = binary_mask(mask_img).astype(np.uint8)
-        # ic("Flow mask values after dilation:")
-        # ic(np.unique(flow_mask_img))
-        flow_masks.append(Image.fromarray(flow_mask_img * 255))
-        
-        if mask_dilates > 0:
-            mask_img = scipy.ndimage.binary_dilation(mask_img, iterations=mask_dilates).astype(np.uint8)
-        else:
-            mask_img = binary_mask(mask_img).astype(np.uint8)
-        masks_dilated.append(Image.fromarray(mask_img * 255))
-    
-    if len(mask_imgs) == 1:
-        flow_masks = flow_masks * length
-        masks_dilated = masks_dilated * length
-
-    # For Debugging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(flow_masks):
-        mask.save(os.path.join(save_root, 'mask_frames', f"flow_mask_{i}.png"))
-
-    return flow_masks, masks_dilated
 
 
 def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=-1):
@@ -211,11 +82,11 @@ class ProPainter:
                     "max": 300}), # --neighbor_length
                 "subvideo_length": ("INT", {
                     "default": 80,
-                    "min": 0,
+                    "min": 1,
                     "max": 300}), # --subvideo_length
                 "raft_iter": ("INT", {
                     "default": 20,
-                    "min": 0,
+                    "min": 1,
                     "max": 100}), # --raft_iter
                 "fp16": (["enable", "disable"],), #--fp16
             },
@@ -446,7 +317,7 @@ class ProPainter:
                     e_f = min(video_length, f + subvideo_length_img_prop + pad_len)
                     pad_len_s = max(0, f) - s_f
                     pad_len_e = e_f - min(video_length, f + subvideo_length_img_prop)
-
+                    # TODO: Check error in prop_imgs_sub.view() for some masks
                     b, t, _, _, _ = masks_dilated[:, s_f:e_f].size()
                     pred_flows_bi_sub = (pred_flows_bi[0][:, s_f:e_f-1], pred_flows_bi[1][:, s_f:e_f-1])
                     prop_imgs_sub, updated_local_masks_sub = model.img_propagation(masked_frames[:, s_f:e_f], 
