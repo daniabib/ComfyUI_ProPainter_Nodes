@@ -34,6 +34,88 @@ def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=
     return ref_index
 
 
+def compute_flow(frames: torch.Tensor, raft_model, raft_iter, video_length, use_half=True) -> tuple:
+    """
+    Compute forward and backward flows.
+    Optical Flow Computation: The fix_raft function is called in batches defined by short_clip_len. If the video has more frames than short_clip_len, it processes the frames in chunks to estimate the forward (flows_f) and backward (flows_b) optical flows. These flows are then concatenated to form gt_flows_f and gt_flows_b.
+    """
+    if frames.size(dim=-1) <= 640: 
+        short_clip_len = 12
+    elif frames.size(dim=-1) <= 720: 
+        short_clip_len = 8
+    elif frames.size(dim=-1) <= 1280:
+        short_clip_len = 4
+    else:
+        short_clip_len = 2
+
+    # use fp32 for RAFT
+    if frames.size(dim=1) > short_clip_len:
+        gt_flows_f_list, gt_flows_b_list = [], []
+        for chunck in range(0, video_length, short_clip_len):
+            end_f = min(video_length, chunck + short_clip_len)
+            if chunck == 0:
+                flows_f, flows_b = raft_model(frames[:,chunck:end_f], iters=raft_iter)
+            else:
+                flows_f, flows_b = raft_model(frames[:,chunck-1:end_f], iters=raft_iter)
+            
+            gt_flows_f_list.append(flows_f)
+            gt_flows_b_list.append(flows_b)
+            torch.cuda.empty_cache()
+            
+        gt_flows_f = torch.cat(gt_flows_f_list, dim=1)
+        gt_flows_b = torch.cat(gt_flows_b_list, dim=1)
+        gt_flows_bi = (gt_flows_f, gt_flows_b)
+    else:
+        gt_flows_bi = raft_model(frames, iters=raft_iter)
+        torch.cuda.empty_cache()
+            
+    return gt_flows_bi
+
+
+def complete_flow(recurrent_flow_model, flows_tuple, flow_masks, subvideo_length):
+    """
+    Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
+    """    
+    flow_length = flows_tuple[0].size(dim=1)
+    ic(flow_length)
+    if flow_length > subvideo_length:
+        pred_flows_f, pred_flows_b = [], []
+        pad_len = 5
+        for f in range(0, flow_length, subvideo_length):
+            s_f = max(0, f - pad_len)
+            e_f = min(flow_length, f + subvideo_length + pad_len)
+            pad_len_s = max(0, f) - s_f
+            pad_len_e = e_f - min(flow_length, f + subvideo_length)
+            pred_flows_bi_sub, _ = recurrent_flow_model.forward_bidirect_flow(
+                (flows_tuple[0][:, s_f:e_f], flows_tuple[1][:, s_f:e_f]), 
+                flow_masks[:, s_f:e_f+1])
+            pred_flows_bi_sub = recurrent_flow_model.combine_flow(
+                (flows_tuple[0][:, s_f:e_f], flows_tuple[1][:, s_f:e_f]), 
+                pred_flows_bi_sub, 
+                flow_masks[:, s_f:e_f+1])
+
+            pred_flows_f.append(pred_flows_bi_sub[0][:, pad_len_s:e_f-s_f-pad_len_e])
+            pred_flows_b.append(pred_flows_bi_sub[1][:, pad_len_s:e_f-s_f-pad_len_e])
+            torch.cuda.empty_cache()
+            
+        pred_flows_f = torch.cat(pred_flows_f, dim=1)
+        pred_flows_b = torch.cat(pred_flows_b, dim=1)
+
+        pred_flows_bi = (pred_flows_f, pred_flows_b)
+
+        ic(pred_flows_f.size())
+        ic(pred_flows_b.size())
+    
+    else:
+        pred_flows_bi, _ = recurrent_flow_model.forward_bidirect_flow(flows_tuple, flow_masks)
+        pred_flows_bi = recurrent_flow_model.combine_flow(flows_tuple, pred_flows_bi, flow_masks)
+        
+        ic(pred_flows_bi[0].size())
+        
+        torch.cuda.empty_cache()
+    
+    return pred_flows_bi
+
 class ProPainter:
     """
     ProPainter Inpainter
@@ -86,11 +168,7 @@ class ProPainter:
 
     RETURN_TYPES = ("IMAGE", "MASK", "MASK",)
     RETURN_NAMES = ("IMAGE", "FLOW_MASK", "MASK_DILATE",)
-
     FUNCTION = "propainter_inpainting"
-
-    #OUTPUT_NODE = False
-
     CATEGORY = "ProPainter"
 
     def propainter_inpainting(self, 
@@ -122,7 +200,7 @@ class ProPainter:
         ic(device)
         
         # Use fp16 precision during inference to reduce running memory cost
-        use_half = True if fp16 else False 
+        use_half = True if fp16 == "enable" else False 
         if device == torch.device('cpu'):
             use_half = False
 
@@ -170,96 +248,23 @@ class ProPainter:
         fix_flow_complete = load_recurrent_flow_model(device)
         model = load_inpaint_model(device)
         
+        
         ##############################################
         # ProPainter inference
         ##############################################
         video_length = frames.size(dim=1)
         print(f'\nProcessing  {video_length} frames...')
-        with torch.no_grad():
-            # ---- compute flow ----
-            if frames.size(dim=-1) <= 640: 
-                short_clip_len = 12
-            elif frames.size(dim=-1) <= 720: 
-                short_clip_len = 8
-            elif frames.size(dim=-1) <= 1280:
-                short_clip_len = 4
-            else:
-                short_clip_len = 2
         
-            # use fp32 for RAFT
-            """
-            Optical Flow Computation: The fix_raft function is called in batches defined by short_clip_len. If the video has more frames than short_clip_len, it processes the frames in chunks to estimate the forward (flows_f) and backward (flows_b) optical flows. These flows are then concatenated to form gt_flows_f and gt_flows_b.
-            """
-            if frames.size(dim=1) > short_clip_len:
-                gt_flows_f_list, gt_flows_b_list = [], []
-                for chunck in range(0, video_length, short_clip_len):
-                    end_f = min(video_length, chunck + short_clip_len)
-                    if chunck == 0:
-                        flows_f, flows_b = fix_raft(frames[:,chunck:end_f], iters=raft_iter)
-                    else:
-                        flows_f, flows_b = fix_raft(frames[:,chunck-1:end_f], iters=raft_iter)
-                    
-                    gt_flows_f_list.append(flows_f)
-                    gt_flows_b_list.append(flows_b)
-                    torch.cuda.empty_cache()
-                    
-                gt_flows_f = torch.cat(gt_flows_f_list, dim=1)
-                gt_flows_b = torch.cat(gt_flows_b_list, dim=1)
-                gt_flows_bi = (gt_flows_f, gt_flows_b)
-            else:
-                gt_flows_bi = fix_raft(frames, iters=raft_iter)
-                torch.cuda.empty_cache()
-                
+        with torch.no_grad():
+            gt_flows_bi = compute_flow(frames, fix_raft, raft_iter, video_length, use_half)
+            
             if use_half:
                 frames, flow_masks, masks_dilated = frames.half(), flow_masks.half(), masks_dilated.half()
                 gt_flows_bi = (gt_flows_bi[0].half(), gt_flows_bi[1].half())
                 fix_flow_complete = fix_flow_complete.half()
                 model = model.half()
-                
-            ic(gt_flows_f.size())
-            ic(gt_flows_b.size())
             
-            # ---- complete flow ----
-            """
-            Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
-            """    
-            flow_length = gt_flows_bi[0].size(dim=1)
-            ic(flow_length)
-            if flow_length > subvideo_length:
-                pred_flows_f, pred_flows_b = [], []
-                pad_len = 5
-                for f in range(0, flow_length, subvideo_length):
-                    s_f = max(0, f - pad_len)
-                    e_f = min(flow_length, f + subvideo_length + pad_len)
-                    pad_len_s = max(0, f) - s_f
-                    pad_len_e = e_f - min(flow_length, f + subvideo_length)
-                    pred_flows_bi_sub, _ = fix_flow_complete.forward_bidirect_flow(
-                        (gt_flows_bi[0][:, s_f:e_f], gt_flows_bi[1][:, s_f:e_f]), 
-                        flow_masks[:, s_f:e_f+1])
-                    pred_flows_bi_sub = fix_flow_complete.combine_flow(
-                        (gt_flows_bi[0][:, s_f:e_f], gt_flows_bi[1][:, s_f:e_f]), 
-                        pred_flows_bi_sub, 
-                        flow_masks[:, s_f:e_f+1])
-
-                    pred_flows_f.append(pred_flows_bi_sub[0][:, pad_len_s:e_f-s_f-pad_len_e])
-                    pred_flows_b.append(pred_flows_bi_sub[1][:, pad_len_s:e_f-s_f-pad_len_e])
-                    torch.cuda.empty_cache()
-                    
-                pred_flows_f = torch.cat(pred_flows_f, dim=1)
-                pred_flows_b = torch.cat(pred_flows_b, dim=1)
-
-                pred_flows_bi = (pred_flows_f, pred_flows_b)
-
-                ic(pred_flows_f.size())
-                ic(pred_flows_b.size())
-                
-            else:
-                pred_flows_bi, _ = fix_flow_complete.forward_bidirect_flow(gt_flows_bi, flow_masks)
-                pred_flows_bi = fix_flow_complete.combine_flow(gt_flows_bi, pred_flows_bi, flow_masks)
-                
-                ic(pred_flows_bi[0].size())
-                
-                torch.cuda.empty_cache()
+            pred_flows_bi = complete_flow(fix_flow_complete, gt_flows_bi, flow_masks, subvideo_length)
                 
             ic("-------- AFTER COMPLETE FLOW --------")
             ic(type(frames))
@@ -269,7 +274,7 @@ class ProPainter:
             ic(type(masks_dilated))
             ic(masks_dilated.size())
                 
-        
+            # TODO: Finish refactoring inference function
             # ---- image propagation ----
             """
             The masked frames are computed by blending original frames and propagated images based on the masks. The process is again segmented if the video is longer than a defined threshold (subvideo_length_img_prop).
@@ -376,7 +381,6 @@ class ProPainter:
             imwrite(f, img_save_root)
             
             
-        # output_frames = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in comp_frames]
         output_frames = [torch.from_numpy(frame.astype(np.float32) / 255.0) for frame in comp_frames]
         ic(output_frames[0].size())
         
@@ -390,7 +394,6 @@ class ProPainter:
         ic(output_flow_masks.size())
         ic(output_masks_dilated.size())
         
-        # return (stack_images, stack_flow_masks, stack_dilated_masks)
         return (output_frames, output_flow_masks, output_masks_dilated)
     
 
