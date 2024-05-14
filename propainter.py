@@ -7,10 +7,12 @@ from icecream import ic
 
 import torch
 
+import comfy.model_management as model_management
+
 from .utils.image_util import resize_images, convert_image_to_frames, read_masks
 from .utils.model_utils import load_raft_model, load_recurrent_flow_model, load_inpaint_model
 from .core.utils import to_tensors
-from .model.misc import get_device
+# from .model.misc import get_device
 
 from .utils.img_util import imwrite # For Debbuging only
 
@@ -323,7 +325,8 @@ class ProPainter:
         ic(neighbor_length)
         ic(fp16)
         
-        device = get_device()
+        # device = get_device()
+        device = model_management.get_torch_device()
         ic(device)
         
         # Use fp16 precision during inference to reduce running memory cost
