@@ -5,16 +5,19 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.transforms.functional import to_pil_image
 
+from numpy.typing import NDArray
+
 # For Debugging
 import os
 from icecream import ic
+
 
 
 class Stack(object):
     def __init__(self, roll=False):
         self.roll = roll
 
-    def __call__(self, img_group):
+    def __call__(self, img_group) -> NDArray:
         mode = img_group[0].mode
         if mode == '1':
             img_group = [img.convert('L') for img in img_group]
@@ -38,7 +41,7 @@ class ToTorchFormatTensor(object):
     def __init__(self, div=True):
         self.div = div
 
-    def __call__(self, pic):
+    def __call__(self, pic) -> torch.Tensor:
         if isinstance(pic, np.ndarray):
             # numpy img: [L, C, H, W]
             img = torch.from_numpy(pic).permute(2, 3, 0, 1).contiguous()

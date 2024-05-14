@@ -145,7 +145,7 @@ class ProPainter:
         print(f'\nProcessing  {video_length} frames...')
         
         with torch.no_grad():
-            gt_flows_bi = compute_flow(frames, fix_raft, raft_iter, video_length)
+            gt_flows_bi = compute_flow(fix_raft, frames, raft_iter, video_length)
             
             if use_half:
                 frames, flow_masks, masks_dilated = frames.half(), flow_masks.half(), masks_dilated.half()

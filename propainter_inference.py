@@ -8,11 +8,18 @@ from .model.modules.flow_comp_raft import RAFT_bi
 from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from .model.propainter import InpaintGenerator
 
+from numpy.typing import NDArray
+
 # For Debbuging only
 from .utils.img_util import imwrite 
 from icecream import ic
 
-def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=-1):
+
+def get_ref_index(mid_neighbor_id: int, 
+                  neighbor_ids: list[int], 
+                  length: int, 
+                  ref_stride: int = 10, 
+                  ref_num: int = -1) -> list[int]:
     ref_index = []
     if ref_num == -1:
         for i in range(0, length, ref_stride):
@@ -29,7 +36,10 @@ def get_ref_index(mid_neighbor_id, neighbor_ids, length, ref_stride=10, ref_num=
     return ref_index
 
 
-def compute_flow(frames: torch.Tensor, raft_model, raft_iter, video_length) -> tuple:
+def compute_flow(raft_model: RAFT_bi,
+                 frames: torch.Tensor, 
+                 raft_iter: int, 
+                 video_length: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Compute forward and backward flows.
     Optical Flow Computation: The fix_raft function is called in batches defined by short_clip_len. If the video has more frames than short_clip_len, it processes the frames in chunks to estimate the forward (flows_f) and backward (flows_b) optical flows. These flows are then concatenated to form gt_flows_f and gt_flows_b.
@@ -67,7 +77,10 @@ def compute_flow(frames: torch.Tensor, raft_model, raft_iter, video_length) -> t
     return gt_flows_bi
 
 
-def complete_flow(recurrent_flow_model, flows_tuple, flow_masks, subvideo_length):
+def complete_flow(recurrent_flow_model: RecurrentFlowCompleteNet, 
+                  flows_tuple: tuple[torch.Tensor, torch.Tensor], 
+                  flow_masks: torch.Tensor, 
+                  subvideo_length: int) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
     """    
@@ -112,13 +125,13 @@ def complete_flow(recurrent_flow_model, flows_tuple, flow_masks, subvideo_length
     return pred_flows_bi
 
 
-def image_propagation(inpaint_model, 
-                      frames, 
-                      masks_dilated,
-                      prediction_flows,
-                      video_length, 
-                      subvideo_length,  
-                      process_size): 
+def image_propagation(inpaint_model: InpaintGenerator, 
+                      frames: torch.Tensor, 
+                      masks_dilated: torch.Tensor,
+                      prediction_flows: tuple[torch.Tensor, torch.Tensor],
+                      video_length: int, 
+                      subvideo_length: int,  
+                      process_size: tuple[int, int]) -> tuple[torch.Tensor, torch.Tensor]: 
     """
     The masked frames are computed by blending original frames and propagated images based on the masks. The process is again segmented if the video is longer than a defined threshold (subvideo_length_img_prop).
     """
@@ -162,17 +175,17 @@ def image_propagation(inpaint_model,
     return updated_frames, updated_masks
 
 
-def feature_propagation(inpaint_model,
-                        updated_frames, 
-                        updated_masks, 
-                        masks_dilated, 
-                        prediction_flows,
-                        original_frames,
-                        video_length,
-                        subvideo_length,
-                        neighbor_length,
-                        ref_stride,
-                        process_size):
+def feature_propagation(inpaint_model: InpaintGenerator,
+                        updated_frames: torch.Tensor, 
+                        updated_masks: torch.Tensor, 
+                        masks_dilated: torch.Tensor, 
+                        prediction_flows: tuple[torch.Tensor, torch.Tensor],
+                        original_frames: NDArray,
+                        video_length: int,
+                        subvideo_length: int,
+                        neighbor_length: int,
+                        ref_stride: int,
+                        process_size: tuple[int, int]) -> list[NDArray]:
     """
     Feature Propagation and Transformation: This is done in a loop where features from neighboring frames are propagated using a model. The result is adjusted for color normalization and combined with original frames to produce the final composited frames.
     """
@@ -201,7 +214,6 @@ def feature_propagation(inpaint_model,
             # 1.0 indicates mask
             l_t = len(neighbor_ids)
             
-            # pred_img = selected_imgs # results of image propagation
             pred_img = inpaint_model(selected_imgs, selected_pred_flows_bi, selected_masks, selected_update_masks, l_t)
             
             pred_img = pred_img.view(-1, 3, process_height, process_width)
@@ -222,7 +234,7 @@ def feature_propagation(inpaint_model,
                 comp_frames[idx] = comp_frames[idx].astype(np.uint8)
         
         torch.cuda.empty_cache()
-        
+    
     ic(type(comp_frames[0]))
     ic(comp_frames[0].shape)
     ic(comp_frames[0].dtype)
