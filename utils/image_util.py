@@ -1,12 +1,58 @@
 import torch
 import scipy
 import numpy as np
-from torchvision.transforms.functional import to_pil_image
 from PIL import Image
+from torchvision import transforms
+from torchvision.transforms.functional import to_pil_image
 
 # For Debugging
 import os
 from icecream import ic
+
+
+class Stack(object):
+    def __init__(self, roll=False):
+        self.roll = roll
+
+    def __call__(self, img_group):
+        mode = img_group[0].mode
+        if mode == '1':
+            img_group = [img.convert('L') for img in img_group]
+            mode = 'L'
+        if mode == 'L':
+            return np.stack([np.expand_dims(x, 2) for x in img_group], axis=2)
+        elif mode == 'RGB':
+            if self.roll:
+                return np.stack([np.array(x)[:, :, ::-1] for x in img_group],
+                                axis=2)
+            else:
+                return np.stack(img_group, axis=2)
+        else:
+            raise NotImplementedError(f"Image mode {mode}")
+
+
+class ToTorchFormatTensor(object):
+    """ Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]
+    to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] """
+    # TODO: Check how this function is working with the comfy workflow.
+    def __init__(self, div=True):
+        self.div = div
+
+    def __call__(self, pic):
+        if isinstance(pic, np.ndarray):
+            # numpy img: [L, C, H, W]
+            img = torch.from_numpy(pic).permute(2, 3, 0, 1).contiguous()
+        else:
+            # handle PIL Image
+            img = torch.ByteTensor(torch.ByteStorage.from_buffer(
+                pic.tobytes()))
+            img = img.view(pic.size[1], pic.size[0], len(pic.mode))
+            # put it from HWC to CHW format
+            # yikes, this transpose takes 80% of the loading time/CPU
+            img = img.transpose(0, 1).transpose(0, 2).contiguous()
+        img = img.float().div(255) if self.div else img.float()
+        return img
+
 
 def resize_images(images: list[Image.Image], 
                   input_size: tuple[int, int], 
@@ -24,6 +70,7 @@ def resize_images(images: list[Image.Image],
         images = [f.resize(process_size) for f in images]
 
     return images, process_size
+
 
 def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
     """
@@ -50,12 +97,14 @@ def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
     
     return frames
 
+
 def binary_mask(mask: np.ndarray, 
                 th: float = 0.1) -> np.ndarray:
     mask[mask>th] = 1
     mask[mask<=th] = 0
     
     return mask
+
 
 def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
     """
@@ -85,6 +134,7 @@ def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
     
     return frames
 
+
 def read_masks(masks: torch.Tensor, 
                input_size: tuple[int, int], 
                output_size: tuple[int, int], 
@@ -101,17 +151,12 @@ def read_masks(masks: torch.Tensor,
 
     for mask_img in mask_imgs:
         mask_img = np.array(mask_img.convert('L'))
-        # ic("Initial mask values:")
-        # ic( np.unique(mask_img))  
-        # ic(mask_img.shape)
 
         # Dilate 8 pixel so that all known pixel is trustworthy
         if flow_mask_dilates > 0:
             flow_mask_img = scipy.ndimage.binary_dilation(mask_img, iterations=flow_mask_dilates).astype(np.uint8)
         else:
             flow_mask_img = binary_mask(mask_img).astype(np.uint8)
-        # ic("Flow mask values after dilation:")
-        # ic(np.unique(flow_mask_img))
         flow_masks.append(Image.fromarray(flow_mask_img * 255))
         
         if mask_dilates > 0:
@@ -130,3 +175,7 @@ def read_masks(masks: torch.Tensor,
         mask.save(os.path.join(save_root, 'mask_frames', f"flow_mask_{i}.png"))
 
     return flow_masks, masks_dilated
+
+
+def to_tensors():
+    return transforms.Compose([Stack(), ToTorchFormatTensor()])

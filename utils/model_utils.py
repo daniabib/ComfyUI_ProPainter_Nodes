@@ -1,6 +1,7 @@
 import os
 
 from torch import device
+
 from .download_util import load_file_from_url
 from ..model.modules.flow_comp_raft import RAFT_bi
 from ..model.recurrent_flow_completion import RecurrentFlowCompleteNet
