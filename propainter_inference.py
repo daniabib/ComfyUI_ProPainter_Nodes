@@ -10,10 +10,6 @@ from .model.propainter import InpaintGenerator
 
 from numpy.typing import NDArray
 
-# For Debbuging only
-from .utils.image_utils import imwrite 
-from icecream import ic
-
 
 def get_ref_index(mid_neighbor_id: int, 
                   neighbor_ids: list[int], 
@@ -85,7 +81,6 @@ def complete_flow(recurrent_flow_model: RecurrentFlowCompleteNet,
     Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
     """    
     flow_length = flows_tuple[0].size(dim=1)
-    ic(flow_length)
     if flow_length > subvideo_length:
         pred_flows_f, pred_flows_b = [], []
         pad_len = 5
@@ -111,14 +106,11 @@ def complete_flow(recurrent_flow_model: RecurrentFlowCompleteNet,
 
         pred_flows_bi = (pred_flows_f, pred_flows_b)
 
-        ic(pred_flows_f.size())
-        ic(pred_flows_b.size())
     
     else:
         pred_flows_bi, _ = recurrent_flow_model.forward_bidirect_flow(flows_tuple, flow_masks)
         pred_flows_bi = recurrent_flow_model.combine_flow(flows_tuple, pred_flows_bi, flow_masks)
         
-        ic(pred_flows_bi[0].size())
         
         torch.cuda.empty_cache()
     
@@ -137,7 +129,6 @@ def image_propagation(inpaint_model: InpaintGenerator,
     """
     process_width, process_height = process_size
     masked_frames = frames * (1 - masks_dilated)
-    ic(masked_frames.size())
     subvideo_length_img_prop = min(100, subvideo_length) # ensure a minimum of 100 frames for image propagation
     if video_length > subvideo_length_img_prop:
         updated_frames, updated_masks = [], []
@@ -169,8 +160,6 @@ def image_propagation(inpaint_model: InpaintGenerator,
         updated_frames = frames * (1 - masks_dilated) + prop_imgs.view(b, t, 3, process_height, process_width) * masks_dilated
         updated_masks = updated_local_masks.view(b, t, 1, process_height, process_width)
         torch.cuda.empty_cache()
-    ic(updated_frames.size())
-    ic(updated_masks.size())
     
     return updated_frames, updated_masks
 
@@ -234,18 +223,5 @@ def feature_propagation(inpaint_model: InpaintGenerator,
                 comp_frames[idx] = comp_frames[idx].astype(np.uint8)
         
         torch.cuda.empty_cache()
-    
-    ic(type(comp_frames[0]))
-    ic(comp_frames[0].shape)
-    ic(comp_frames[0].dtype)
-    
-    
-    # For Debugging
-    for idx in range(video_length):
-        f = comp_frames[idx]
-        f = cv2.resize(f, process_size, interpolation = cv2.INTER_CUBIC)
-        f = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
-        img_save_root = os.path.join("custom_nodes/ComfyUI-ProPainter-Nodes/results", "frames", str(idx).zfill(4)+'.png')
-        imwrite(f, img_save_root)
-        
+
     return comp_frames

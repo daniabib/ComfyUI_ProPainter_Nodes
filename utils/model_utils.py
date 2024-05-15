@@ -7,9 +7,6 @@ from ..model.modules.flow_comp_raft import RAFT_bi
 from ..model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from ..model.propainter import InpaintGenerator
 
-# For Debbuging only
-from icecream import ic
-
 
 pretrain_model_url = 'https://github.com/sczhou/ProPainter/releases/download/v0.1.0/'
 
@@ -45,7 +42,6 @@ def load_inpaint_model(device: device) -> InpaintGenerator:
     Loads the Inpaint Generator model.
     """
     model_path = download_model(pretrain_model_url, 'ProPainter.pth')
-    ic(model_path)
     inpaint_model = InpaintGenerator(model_path=model_path).to(device)
     inpaint_model.eval()
     return inpaint_model

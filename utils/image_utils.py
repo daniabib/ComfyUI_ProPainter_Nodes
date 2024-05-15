@@ -7,12 +7,6 @@ from torchvision.transforms.functional import to_pil_image
 
 from numpy.typing import NDArray
 
-# For Debugging
-import cv2
-import os
-from icecream import ic
-
-
 
 class Stack(object):
     def __init__(self, roll=False):
@@ -68,8 +62,7 @@ def resize_images(images: list[Image.Image],
         A list of resized images with dimensions divisible by 8 and process size.
     """    
     process_size = (output_size[0]-output_size[0]%8, output_size[1]-output_size[1]%8)
-    ic(process_size)
-    
+
     if process_size != input_size:
         images = [f.resize(process_size) for f in images]
 
@@ -93,12 +86,7 @@ def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
         np_frame = (np_frame * 255).clip(0, 255).astype(np.uint8)
         frame = Image.fromarray(np_frame)
         frames.append(frame)
-    
-    # For Debbuging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(frames):
-        mask.save(os.path.join(save_root, 'test_pil_frames', f"pil_frame_{i}.png"))
-    
+
     return frames
 
 
@@ -130,11 +118,6 @@ def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
 
         frame: Image.Image = to_pil_image(image)
         frames.append(frame)
-    
-    # For Debugging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(frames):
-        mask.save(os.path.join(save_root, 'test_pil_masks', f"pil_mask_{i}.png"))
     
     return frames
 
@@ -173,33 +156,8 @@ def read_masks(masks: torch.Tensor,
         flow_masks = flow_masks * length
         masks_dilated = masks_dilated * length
 
-    # For Debugging
-    save_root = "custom_nodes/ComfyUI-ProPainter-Nodes/results"
-    for i, mask in enumerate(flow_masks):
-        mask.save(os.path.join(save_root, 'mask_frames', f"flow_mask_{i}.png"))
-
     return flow_masks, masks_dilated
 
 
 def to_tensors():
     return transforms.Compose([Stack(), ToTorchFormatTensor()])
-
-
-# For debugging only
-def imwrite(img, file_path, params=None, auto_mkdir=True):
-    """Write image to file.
-
-    Args:
-        img (ndarray): Image array to be written.
-        file_path (str): Image file path.
-        params (None or list): Same as opencv's :func:`imwrite` interface.
-        auto_mkdir (bool): If the parent folder of `file_path` does not exist,
-            whether to create it automatically.
-
-    Returns:
-        bool: Successful or not.
-    """
-    if auto_mkdir:
-        dir_name = os.path.abspath(os.path.dirname(file_path))
-        os.makedirs(dir_name, exist_ok=True)
-    return cv2.imwrite(file_path, img, params)
