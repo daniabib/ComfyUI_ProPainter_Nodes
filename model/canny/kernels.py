@@ -48,12 +48,21 @@ def _modified_bessel_0(x: torch.Tensor) -> torch.Tensor:
     if torch.abs(x) < 3.75:
         y = (x / 3.75) * (x / 3.75)
         return 1.0 + y * (
-            3.5156229 + y * (3.0899424 + y * (1.2067492 + y * (0.2659732 + y * (0.360768e-1 + y * 0.45813e-2))))
+            3.5156229
+            + y
+            * (
+                3.0899424
+                + y * (1.2067492 + y * (0.2659732 + y * (0.360768e-1 + y * 0.45813e-2)))
+            )
         )
     ax = torch.abs(x)
     y = 3.75 / ax
-    ans = 0.916281e-2 + y * (-0.2057706e-1 + y * (0.2635537e-1 + y * (-0.1647633e-1 + y * 0.392377e-2)))
-    coef = 0.39894228 + y * (0.1328592e-1 + y * (0.225319e-2 + y * (-0.157565e-2 + y * ans)))
+    ans = 0.916281e-2 + y * (
+        -0.2057706e-1 + y * (0.2635537e-1 + y * (-0.1647633e-1 + y * 0.392377e-2))
+    )
+    coef = 0.39894228 + y * (
+        0.1328592e-1 + y * (0.225319e-2 + y * (-0.157565e-2 + y * ans))
+    )
     return (torch.exp(ax) / torch.sqrt(ax)) * coef
 
 
@@ -64,12 +73,17 @@ def _modified_bessel_1(x: torch.Tensor) -> torch.Tensor:
     """
     if torch.abs(x) < 3.75:
         y = (x / 3.75) * (x / 3.75)
-        ans = 0.51498869 + y * (0.15084934 + y * (0.2658733e-1 + y * (0.301532e-2 + y * 0.32411e-3)))
+        ans = 0.51498869 + y * (
+            0.15084934 + y * (0.2658733e-1 + y * (0.301532e-2 + y * 0.32411e-3))
+        )
         return torch.abs(x) * (0.5 + y * (0.87890594 + y * ans))
     ax = torch.abs(x)
     y = 3.75 / ax
     ans = 0.2282967e-1 + y * (-0.2895312e-1 + y * (0.1787654e-1 - y * 0.420059e-2))
-    ans = 0.39894228 + y * (-0.3988024e-1 + y * (-0.362018e-2 + y * (0.163801e-2 + y * (-0.1031555e-1 + y * ans))))
+    ans = 0.39894228 + y * (
+        -0.3988024e-1
+        + y * (-0.362018e-2 + y * (0.163801e-2 + y * (-0.1031555e-1 + y * ans)))
+    )
     ans = ans * torch.exp(ax) / torch.sqrt(ax)
     return -ans if x < 0.0 else ans
 
@@ -190,7 +204,7 @@ def get_diff_kernel_3x3() -> torch.Tensor:
     return torch.tensor([[-0.0, 0.0, 0.0], [-1.0, 0.0, 1.0], [-0.0, 0.0, 0.0]])
 
 
-def get_diff_kernel3d(device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_diff_kernel3d(device=torch.device("cpu"), dtype=torch.float) -> torch.Tensor:
     """Utility function that returns a first order derivative kernel of 3x3x3."""
     kernel: torch.Tensor = torch.tensor(
         [
@@ -216,7 +230,9 @@ def get_diff_kernel3d(device=torch.device('cpu'), dtype=torch.float) -> torch.Te
     return kernel.unsqueeze(1)
 
 
-def get_diff_kernel3d_2nd_order(device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_diff_kernel3d_2nd_order(
+    device=torch.device("cpu"), dtype=torch.float
+) -> torch.Tensor:
     """Utility function that returns a first order derivative kernel of 3x3x3."""
     kernel: torch.Tensor = torch.tensor(
         [
@@ -277,9 +293,13 @@ def get_sobel_kernel2d_2nd_order() -> torch.Tensor:
 
 
 def get_diff_kernel2d_2nd_order() -> torch.Tensor:
-    gxx: torch.Tensor = torch.tensor([[0.0, 0.0, 0.0], [1.0, -2.0, 1.0], [0.0, 0.0, 0.0]])
+    gxx: torch.Tensor = torch.tensor(
+        [[0.0, 0.0, 0.0], [1.0, -2.0, 1.0], [0.0, 0.0, 0.0]]
+    )
     gyy: torch.Tensor = gxx.transpose(0, 1)
-    gxy: torch.Tensor = torch.tensor([[-1.0, 0.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, -1.0]])
+    gxy: torch.Tensor = torch.tensor(
+        [[-1.0, 0.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, -1.0]]
+    )
     return torch.stack([gxx, gxy, gyy])
 
 
@@ -288,62 +308,58 @@ def get_spatial_gradient_kernel2d(mode: str, order: int) -> torch.Tensor:
 
     sobel, diff.
     """
-    if mode not in ['sobel', 'diff']:
+    if mode not in ["sobel", "diff"]:
         raise TypeError(
             "mode should be either sobel\
-                         or diff. Got {}".format(
-                mode
-            )
+                         or diff. Got {}".format(mode)
         )
     if order not in [1, 2]:
         raise TypeError(
             "order should be either 1 or 2\
-                         Got {}".format(
-                order
-            )
+                         Got {}".format(order)
         )
-    if mode == 'sobel' and order == 1:
+    if mode == "sobel" and order == 1:
         kernel: torch.Tensor = get_sobel_kernel2d()
-    elif mode == 'sobel' and order == 2:
+    elif mode == "sobel" and order == 2:
         kernel = get_sobel_kernel2d_2nd_order()
-    elif mode == 'diff' and order == 1:
+    elif mode == "diff" and order == 1:
         kernel = get_diff_kernel2d()
-    elif mode == 'diff' and order == 2:
+    elif mode == "diff" and order == 2:
         kernel = get_diff_kernel2d_2nd_order()
     else:
         raise NotImplementedError("")
     return kernel
 
 
-def get_spatial_gradient_kernel3d(mode: str, order: int, device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_spatial_gradient_kernel3d(
+    mode: str, order: int, device=torch.device("cpu"), dtype=torch.float
+) -> torch.Tensor:
     r"""Function that returns kernel for 1st or 2nd order scale pyramid gradients, using one of the following
     operators: sobel, diff."""
-    if mode not in ['sobel', 'diff']:
+    if mode not in ["sobel", "diff"]:
         raise TypeError(
             "mode should be either sobel\
-                         or diff. Got {}".format(
-                mode
-            )
+                         or diff. Got {}".format(mode)
         )
     if order not in [1, 2]:
         raise TypeError(
             "order should be either 1 or 2\
-                         Got {}".format(
-                order
-            )
+                         Got {}".format(order)
         )
-    if mode == 'sobel':
+    if mode == "sobel":
         raise NotImplementedError("Sobel kernel for 3d gradient is not implemented yet")
-    if mode == 'diff' and order == 1:
+    if mode == "diff" and order == 1:
         kernel = get_diff_kernel3d(device, dtype)
-    elif mode == 'diff' and order == 2:
+    elif mode == "diff" and order == 2:
         kernel = get_diff_kernel3d_2nd_order(device, dtype)
     else:
         raise NotImplementedError("")
     return kernel
 
 
-def get_gaussian_kernel1d(kernel_size: int, sigma: float, force_even: bool = False) -> torch.Tensor:
+def get_gaussian_kernel1d(
+    kernel_size: int, sigma: float, force_even: bool = False
+) -> torch.Tensor:
     r"""Function that returns Gaussian filter coefficients.
 
     Args:
@@ -365,13 +381,21 @@ def get_gaussian_kernel1d(kernel_size: int, sigma: float, force_even: bool = Fal
         >>> get_gaussian_kernel1d(5, 1.5)
         tensor([0.1201, 0.2339, 0.2921, 0.2339, 0.1201])
     """
-    if not isinstance(kernel_size, int) or ((kernel_size % 2 == 0) and not force_even) or (kernel_size <= 0):
-        raise TypeError("kernel_size must be an odd positive integer. " "Got {}".format(kernel_size))
+    if (
+        not isinstance(kernel_size, int)
+        or ((kernel_size % 2 == 0) and not force_even)
+        or (kernel_size <= 0)
+    ):
+        raise TypeError(
+            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+        )
     window_1d: torch.Tensor = gaussian(kernel_size, sigma)
     return window_1d
 
 
-def get_gaussian_discrete_kernel1d(kernel_size: int, sigma: float, force_even: bool = False) -> torch.Tensor:
+def get_gaussian_discrete_kernel1d(
+    kernel_size: int, sigma: float, force_even: bool = False
+) -> torch.Tensor:
     r"""Function that returns Gaussian filter coefficients based on the modified Bessel functions. Adapted from:
     https://github.com/Project-MONAI/MONAI/blob/master/monai/networks/layers/convutils.py.
 
@@ -394,13 +418,21 @@ def get_gaussian_discrete_kernel1d(kernel_size: int, sigma: float, force_even: b
         >>> get_gaussian_discrete_kernel1d(5, 1.5)
         tensor([0.1096, 0.2323, 0.3161, 0.2323, 0.1096])
     """
-    if not isinstance(kernel_size, int) or ((kernel_size % 2 == 0) and not force_even) or (kernel_size <= 0):
-        raise TypeError("kernel_size must be an odd positive integer. " "Got {}".format(kernel_size))
+    if (
+        not isinstance(kernel_size, int)
+        or ((kernel_size % 2 == 0) and not force_even)
+        or (kernel_size <= 0)
+    ):
+        raise TypeError(
+            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+        )
     window_1d = gaussian_discrete(kernel_size, sigma)
     return window_1d
 
 
-def get_gaussian_erf_kernel1d(kernel_size: int, sigma: float, force_even: bool = False) -> torch.Tensor:
+def get_gaussian_erf_kernel1d(
+    kernel_size: int, sigma: float, force_even: bool = False
+) -> torch.Tensor:
     r"""Function that returns Gaussian filter coefficients by interpolating the error function, adapted from:
     https://github.com/Project-MONAI/MONAI/blob/master/monai/networks/layers/convutils.py.
 
@@ -423,8 +455,14 @@ def get_gaussian_erf_kernel1d(kernel_size: int, sigma: float, force_even: bool =
         >>> get_gaussian_erf_kernel1d(5, 1.5)
         tensor([0.1226, 0.2331, 0.2887, 0.2331, 0.1226])
     """
-    if not isinstance(kernel_size, int) or ((kernel_size % 2 == 0) and not force_even) or (kernel_size <= 0):
-        raise TypeError("kernel_size must be an odd positive integer. " "Got {}".format(kernel_size))
+    if (
+        not isinstance(kernel_size, int)
+        or ((kernel_size % 2 == 0) and not force_even)
+        or (kernel_size <= 0)
+    ):
+        raise TypeError(
+            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+        )
     window_1d = gaussian_discrete_erf(kernel_size, sigma)
     return window_1d
 
@@ -465,7 +503,9 @@ def get_gaussian_kernel2d(
     sigma_x, sigma_y = sigma
     kernel_x: torch.Tensor = get_gaussian_kernel1d(ksize_x, sigma_x, force_even)
     kernel_y: torch.Tensor = get_gaussian_kernel1d(ksize_y, sigma_y, force_even)
-    kernel_2d: torch.Tensor = torch.matmul(kernel_x.unsqueeze(-1), kernel_y.unsqueeze(-1).t())
+    kernel_2d: torch.Tensor = torch.matmul(
+        kernel_x.unsqueeze(-1), kernel_y.unsqueeze(-1).t()
+    )
     return kernel_2d
 
 
@@ -601,7 +641,7 @@ def get_pascal_kernel_1d(kernel_size: int, norm: bool = False) -> torch.Tensor:
     return out
 
 
-def get_canny_nms_kernel(device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_canny_nms_kernel(device=torch.device("cpu"), dtype=torch.float) -> torch.Tensor:
     """Utility function that returns 3x3 kernels for the Canny Non-maximal suppression."""
     kernel: torch.Tensor = torch.tensor(
         [
@@ -620,7 +660,9 @@ def get_canny_nms_kernel(device=torch.device('cpu'), dtype=torch.float) -> torch
     return kernel.unsqueeze(1)
 
 
-def get_hysteresis_kernel(device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_hysteresis_kernel(
+    device=torch.device("cpu"), dtype=torch.float
+) -> torch.Tensor:
     """Utility function that returns the 3x3 kernels for the Canny hysteresis."""
     kernel: torch.Tensor = torch.tensor(
         [
@@ -639,7 +681,9 @@ def get_hysteresis_kernel(device=torch.device('cpu'), dtype=torch.float) -> torc
     return kernel.unsqueeze(1)
 
 
-def get_hanning_kernel1d(kernel_size: int, device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_hanning_kernel1d(
+    kernel_size: int, device=torch.device("cpu"), dtype=torch.float
+) -> torch.Tensor:
     r"""Returns Hanning (also known as Hann) kernel, used in signal processing and KCF tracker.
 
     .. math::  w(n) = 0.5 - 0.5cos\\left(\\frac{2\\pi{n}}{M-1}\\right)
@@ -669,7 +713,9 @@ def get_hanning_kernel1d(kernel_size: int, device=torch.device('cpu'), dtype=tor
     return x
 
 
-def get_hanning_kernel2d(kernel_size: Tuple[int, int], device=torch.device('cpu'), dtype=torch.float) -> torch.Tensor:
+def get_hanning_kernel2d(
+    kernel_size: Tuple[int, int], device=torch.device("cpu"), dtype=torch.float
+) -> torch.Tensor:
     r"""Returns 2d Hanning kernel, used in signal processing and KCF tracker.
 
     Args:
@@ -683,7 +729,9 @@ def get_hanning_kernel2d(kernel_size: Tuple[int, int], device=torch.device('cpu'
         - Output: math:`(\text{kernel_size[0], kernel_size[1]})`
     """
     if kernel_size[0] <= 2 or kernel_size[1] <= 2:
-        raise TypeError(f"ksize must be an tuple of positive integers > 2. Got {kernel_size}")
+        raise TypeError(
+            f"ksize must be an tuple of positive integers > 2. Got {kernel_size}"
+        )
     ky: torch.Tensor = get_hanning_kernel1d(kernel_size[0], device, dtype)[None].T
     kx: torch.Tensor = get_hanning_kernel1d(kernel_size[1], device, dtype)[None]
     kernel2d = ky @ kx

@@ -9,17 +9,24 @@ from .gaussian import gaussian_blur2d
 from .kernels import get_canny_nms_kernel, get_hysteresis_kernel
 from .sobel import spatial_gradient
 
-def rgb_to_grayscale(image, rgb_weights = None):
+
+def rgb_to_grayscale(image, rgb_weights=None):
     if len(image.shape) < 3 or image.shape[-3] != 3:
-        raise ValueError(f"Input size must have a shape of (*, 3, H, W). Got {image.shape}")
+        raise ValueError(
+            f"Input size must have a shape of (*, 3, H, W). Got {image.shape}"
+        )
 
     if rgb_weights is None:
         # 8 bit images
         if image.dtype == torch.uint8:
-            rgb_weights = torch.tensor([76, 150, 29], device=image.device, dtype=torch.uint8)
+            rgb_weights = torch.tensor(
+                [76, 150, 29], device=image.device, dtype=torch.uint8
+            )
         # floating point images
         elif image.dtype in (torch.float16, torch.float32, torch.float64):
-            rgb_weights = torch.tensor([0.299, 0.587, 0.114], device=image.device, dtype=image.dtype)
+            rgb_weights = torch.tensor(
+                [0.299, 0.587, 0.114], device=image.device, dtype=image.dtype
+            )
         else:
             raise TypeError(f"Unknown data type: {image.dtype}")
     else:
@@ -88,10 +95,14 @@ def canny(
         )
 
     if low_threshold < 0 and low_threshold > 1:
-        raise ValueError(f"Invalid input threshold. low_threshold should be in range (0,1). Got: {low_threshold}")
+        raise ValueError(
+            f"Invalid input threshold. low_threshold should be in range (0,1). Got: {low_threshold}"
+        )
 
     if high_threshold < 0 and high_threshold > 1:
-        raise ValueError(f"Invalid input threshold. high_threshold should be in range (0,1). Got: {high_threshold}")
+        raise ValueError(
+            f"Invalid input threshold. high_threshold should be in range (0,1). Got: {high_threshold}"
+        )
 
     device: torch.device = input.device
     dtype: torch.dtype = input.dtype
@@ -122,7 +133,9 @@ def canny(
 
     # Non-maximal suppression
     nms_kernels: torch.Tensor = get_canny_nms_kernel(device, dtype)
-    nms_magnitude: torch.Tensor = F.conv2d(magnitude, nms_kernels, padding=nms_kernels.shape[-1] // 2)
+    nms_magnitude: torch.Tensor = F.conv2d(
+        magnitude, nms_kernels, padding=nms_kernels.shape[-1] // 2
+    )
 
     # Get the indices for both directions
     positive_idx: torch.Tensor = (angle / 45) % 8
@@ -132,8 +145,12 @@ def canny(
     negative_idx = negative_idx.long()
 
     # Apply the non-maximum suppression to the different directions
-    channel_select_filtered_positive: torch.Tensor = torch.gather(nms_magnitude, 1, positive_idx)
-    channel_select_filtered_negative: torch.Tensor = torch.gather(nms_magnitude, 1, negative_idx)
+    channel_select_filtered_positive: torch.Tensor = torch.gather(
+        nms_magnitude, 1, positive_idx
+    )
+    channel_select_filtered_negative: torch.Tensor = torch.gather(
+        nms_magnitude, 1, negative_idx
+    )
 
     channel_select_filtered: torch.Tensor = torch.stack(
         [channel_select_filtered_positive, channel_select_filtered_negative], 1
@@ -154,7 +171,9 @@ def canny(
 
     # Hysteresis
     if hysteresis:
-        edges_old: torch.Tensor = -torch.ones(edges.shape, device=edges.device, dtype=dtype)
+        edges_old: torch.Tensor = -torch.ones(
+            edges.shape, device=edges.device, dtype=dtype
+        )
         hysteresis_kernels: torch.Tensor = get_hysteresis_kernel(device, dtype)
 
         while ((edges_old - edges).abs() != 0).any():
@@ -164,7 +183,9 @@ def canny(
             hysteresis_magnitude: torch.Tensor = F.conv2d(
                 edges, hysteresis_kernels, padding=hysteresis_kernels.shape[-1] // 2
             )
-            hysteresis_magnitude = (hysteresis_magnitude == 1).any(1, keepdim=True).to(dtype)
+            hysteresis_magnitude = (
+                (hysteresis_magnitude == 1).any(1, keepdim=True).to(dtype)
+            )
             hysteresis_magnitude = hysteresis_magnitude * weak + strong
 
             edges_old = edges.clone()
@@ -221,10 +242,14 @@ class Canny(nn.Module):
             )
 
         if low_threshold < 0 or low_threshold > 1:
-            raise ValueError(f"Invalid input threshold. low_threshold should be in range (0,1). Got: {low_threshold}")
+            raise ValueError(
+                f"Invalid input threshold. low_threshold should be in range (0,1). Got: {low_threshold}"
+            )
 
         if high_threshold < 0 or high_threshold > 1:
-            raise ValueError(f"Invalid input threshold. high_threshold should be in range (0,1). Got: {high_threshold}")
+            raise ValueError(
+                f"Invalid input threshold. high_threshold should be in range (0,1). Got: {high_threshold}"
+            )
 
         # Gaussian blur parameters
         self.kernel_size = kernel_size
@@ -240,17 +265,25 @@ class Canny(nn.Module):
         self.eps: float = eps
 
     def __repr__(self) -> str:
-        return ''.join(
+        return "".join(
             (
-                f'{type(self).__name__}(',
-                ', '.join(
-                    f'{name}={getattr(self, name)}' for name in sorted(self.__dict__) if not name.startswith('_')
+                f"{type(self).__name__}(",
+                ", ".join(
+                    f"{name}={getattr(self, name)}"
+                    for name in sorted(self.__dict__)
+                    if not name.startswith("_")
                 ),
-                ')',
+                ")",
             )
         )
 
     def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         return canny(
-            input, self.low_threshold, self.high_threshold, self.kernel_size, self.sigma, self.hysteresis, self.eps
+            input,
+            self.low_threshold,
+            self.high_threshold,
+            self.kernel_size,
+            self.sigma,
+            self.hysteresis,
+            self.eps,
         )

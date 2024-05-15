@@ -10,8 +10,8 @@ from .utils import flow_viz
 from .utils.utils import InputPadder
 
 
+DEVICE = "cuda"
 
-DEVICE = 'cuda'
 
 def load_image(imfile):
     img = np.array(Image.open(imfile)).astype(np.uint8)
@@ -32,15 +32,15 @@ def load_image_list(image_files):
 
 
 def viz(img, flo):
-    img = img[0].permute(1,2,0).cpu().numpy()
-    flo = flo[0].permute(1,2,0).cpu().numpy()
+    img = img[0].permute(1, 2, 0).cpu().numpy()
+    flo = flo[0].permute(1, 2, 0).cpu().numpy()
 
     # map flow to rgb image
     flo = flow_viz.flow_to_image(flo)
     # img_flo = np.concatenate([img, flo], axis=0)
     img_flo = flo
 
-    cv2.imwrite('/home/chengao/test/flow.png', img_flo[:, :, [2,1,0]])
+    cv2.imwrite("/home/chengao/test/flow.png", img_flo[:, :, [2, 1, 0]])
     # cv2.imshow('image', img_flo[:, :, [2,1,0]]/255.0)
     # cv2.waitKey()
 
@@ -54,13 +54,14 @@ def demo(args):
     model.eval()
 
     with torch.no_grad():
-        images = glob.glob(os.path.join(args.path, '*.png')) + \
-                 glob.glob(os.path.join(args.path, '*.jpg'))
+        images = glob.glob(os.path.join(args.path, "*.png")) + glob.glob(
+            os.path.join(args.path, "*.jpg")
+        )
 
         images = load_image_list(images)
-        for i in range(images.shape[0]-1):
-            image1 = images[i,None]
-            image2 = images[i+1,None]
+        for i in range(images.shape[0] - 1):
+            image1 = images[i, None]
+            image2 = images[i + 1, None]
 
             flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
             viz(image1, flow_up)

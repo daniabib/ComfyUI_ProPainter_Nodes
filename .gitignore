@@ -148,6 +148,7 @@ dmypy.json
 
 # ruff
 .ruff_cache/
+ruff.toml
 
 # Pyre type checker
 .pyre/

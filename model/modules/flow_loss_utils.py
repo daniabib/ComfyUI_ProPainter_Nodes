@@ -2,11 +2,10 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-def flow_warp(x,
-              flow,
-              interpolation='bilinear',
-              padding_mode='zeros',
-              align_corners=True):
+
+def flow_warp(
+    x, flow, interpolation="bilinear", padding_mode="zeros", align_corners=True
+):
     """Warp an image or a feature map with optical flow.
     Args:
         x (Tensor): Tensor with size (n, c, h, w).
@@ -22,12 +21,16 @@ def flow_warp(x,
         Tensor: Warped image or feature map.
     """
     if x.size()[-2:] != flow.size()[1:3]:
-        raise ValueError(f'The spatial sizes of input ({x.size()[-2:]}) and '
-                         f'flow ({flow.size()[1:3]}) are not the same.')
+        raise ValueError(
+            f"The spatial sizes of input ({x.size()[-2:]}) and "
+            f"flow ({flow.size()[1:3]}) are not the same."
+        )
     _, _, h, w = x.size()
     # create mesh grid
     device = flow.device
-    grid_y, grid_x = torch.meshgrid(torch.arange(0, h, device=device), torch.arange(0, w, device=device))
+    grid_y, grid_x = torch.meshgrid(
+        torch.arange(0, h, device=device), torch.arange(0, w, device=device)
+    )
     grid = torch.stack((grid_x, grid_y), 2).type_as(x)  # (w, h, 2)
     grid.requires_grad = False
 
@@ -36,11 +39,13 @@ def flow_warp(x,
     grid_flow_x = 2.0 * grid_flow[:, :, :, 0] / max(w - 1, 1) - 1.0
     grid_flow_y = 2.0 * grid_flow[:, :, :, 1] / max(h - 1, 1) - 1.0
     grid_flow = torch.stack((grid_flow_x, grid_flow_y), dim=3)
-    output = F.grid_sample(x,
-                           grid_flow,
-                           mode=interpolation,
-                           padding_mode=padding_mode,
-                           align_corners=align_corners)
+    output = F.grid_sample(
+        x,
+        grid_flow,
+        mode=interpolation,
+        padding_mode=padding_mode,
+        align_corners=align_corners,
+    )
     return output
 
 
@@ -76,7 +81,10 @@ def fbConsistencyCheck(flow_fw, flow_bw, alpha1=0.01, alpha2=0.5):
     fb_occ_fw = (length_sq(flow_diff_fw) > occ_thresh_fw).float()
     fb_occ_bw = (length_sq(flow_diff_bw) > occ_thresh_bw).float()
 
-    return fb_occ_fw, fb_occ_bw  # fb_occ_fw -> frame2 area occluded by frame1, fb_occ_bw -> frame1 area occluded by frame2
+    return (
+        fb_occ_fw,
+        fb_occ_bw,
+    )  # fb_occ_fw -> frame2 area occluded by frame1, fb_occ_bw -> frame1 area occluded by frame2
 
 
 def rgb2gray(image):
@@ -114,7 +122,9 @@ def create_mask(mask, paddings):
     inner_width = shape[3] - (paddings[1][0] + paddings[1][1])
     inner = torch.ones([inner_height, inner_width])
 
-    mask2d = F.pad(inner, pad=[paddings[1][0], paddings[1][1], paddings[0][0], paddings[0][1]]) 
+    mask2d = F.pad(
+        inner, pad=[paddings[1][0], paddings[1][1], paddings[0][0], paddings[0][1]]
+    )
     mask3d = mask2d.unsqueeze(0)
     mask4d = mask3d.unsqueeze(0).repeat(shape[0], 1, 1, 1)
     return mask4d.detach()
@@ -135,7 +145,6 @@ def ternary_loss2(frame1, warp_frame21, confMask, masks, max_distance=1):
     """
     t1 = ternary_transform(frame1)
     t21 = ternary_transform(warp_frame21)
-    dist = hamming_distance(t1, t21) 
+    dist = hamming_distance(t1, t21)
     loss = torch.mean(dist * confMask * masks) / torch.mean(masks)
     return loss
-

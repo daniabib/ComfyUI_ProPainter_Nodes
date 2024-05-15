@@ -19,10 +19,10 @@ class CorrBlock:
         corr = CorrBlock.corr(fmap1, fmap2)
 
         batch, h1, w1, dim, h2, w2 = corr.shape
-        corr = corr.reshape(batch*h1*w1, dim, h2, w2)
+        corr = corr.reshape(batch * h1 * w1, dim, h2, w2)
 
         self.corr_pyramid.append(corr)
-        for i in range(self.num_levels-1):
+        for i in range(self.num_levels - 1):
             corr = F.avg_pool2d(corr, 2, stride=2)
             self.corr_pyramid.append(corr)
 
@@ -34,12 +34,12 @@ class CorrBlock:
         out_pyramid = []
         for i in range(self.num_levels):
             corr = self.corr_pyramid[i]
-            dx = torch.linspace(-r, r, 2*r+1)
-            dy = torch.linspace(-r, r, 2*r+1)
+            dx = torch.linspace(-r, r, 2 * r + 1)
+            dy = torch.linspace(-r, r, 2 * r + 1)
             delta = torch.stack(torch.meshgrid(dy, dx), axis=-1).to(coords.device)
 
-            centroid_lvl = coords.reshape(batch*h1*w1, 1, 1, 2) / 2**i
-            delta_lvl = delta.view(1, 2*r+1, 2*r+1, 2)
+            centroid_lvl = coords.reshape(batch * h1 * w1, 1, 1, 2) / 2**i
+            delta_lvl = delta.view(1, 2 * r + 1, 2 * r + 1, 2)
             coords_lvl = centroid_lvl + delta_lvl
 
             corr = bilinear_sampler(corr, coords_lvl)
@@ -52,12 +52,12 @@ class CorrBlock:
     @staticmethod
     def corr(fmap1, fmap2):
         batch, dim, ht, wd = fmap1.shape
-        fmap1 = fmap1.view(batch, dim, ht*wd)
-        fmap2 = fmap2.view(batch, dim, ht*wd)
+        fmap1 = fmap1.view(batch, dim, ht * wd)
+        fmap2 = fmap2.view(batch, dim, ht * wd)
 
-        corr = torch.matmul(fmap1.transpose(1,2), fmap2)
+        corr = torch.matmul(fmap1.transpose(1, 2), fmap2)
         corr = corr.view(batch, ht, wd, 1, ht, wd)
-        return corr  / torch.sqrt(torch.tensor(dim).float())
+        return corr / torch.sqrt(torch.tensor(dim).float())
 
 
 class CorrLayer(torch.autograd.Function):
@@ -68,15 +68,16 @@ class CorrLayer(torch.autograd.Function):
         coords = coords.contiguous()
         ctx.save_for_backward(fmap1, fmap2, coords)
         ctx.r = r
-        corr, = correlation_cudaz.forward(fmap1, fmap2, coords, ctx.r)
+        (corr,) = correlation_cudaz.forward(fmap1, fmap2, coords, ctx.r)
         return corr
 
     @staticmethod
     def backward(ctx, grad_corr):
         fmap1, fmap2, coords = ctx.saved_tensors
         grad_corr = grad_corr.contiguous()
-        fmap1_grad, fmap2_grad, coords_grad = \
-            correlation_cudaz.backward(fmap1, fmap2, coords, grad_corr, ctx.r)
+        fmap1_grad, fmap2_grad, coords_grad = correlation_cudaz.backward(
+            fmap1, fmap2, coords, grad_corr, ctx.r
+        )
         return fmap1_grad, fmap2_grad, coords_grad, None
 
 
@@ -92,7 +93,6 @@ class AlternateCorrBlock:
             self.pyramid.append((fmap1, fmap2))
 
     def __call__(self, coords):
-
         coords = coords.permute(0, 2, 3, 1)
         B, H, W, _ = coords.shape
 

@@ -1,10 +1,11 @@
 # Flow visualization code adapted from https://github.com/tomrunia/OpticalFlow_Visualization
 import torch
-torch.pi = torch.acos(torch.zeros(1)).item() * 2 # which is 3.1415927410125732
+
+torch.pi = torch.acos(torch.zeros(1)).item() * 2  # which is 3.1415927410125732
+
 
 @torch.no_grad()
 def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
-
     """
     Converts a flow to an RGB image.
 
@@ -24,7 +25,9 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
         flow = flow[None]  # Add batch dim
 
     if flow.ndim != 4 or flow.shape[1] != 2:
-        raise ValueError(f"Input flow should have shape (2, H, W) or (N, 2, H, W), got {orig_shape}.")
+        raise ValueError(
+            f"Input flow should have shape (2, H, W) or (N, 2, H, W), got {orig_shape}."
+        )
 
     max_norm = torch.sum(flow**2, dim=1).sqrt().max()
     epsilon = torch.finfo((flow).dtype).eps
@@ -35,9 +38,9 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
         img = img[0]  # Remove batch dim
     return img
 
+
 @torch.no_grad()
 def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
-
     """
     Converts a batch of normalized flow to an RGB image.
 
@@ -53,7 +56,10 @@ def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
     colorwheel = _make_colorwheel().to(device)  # shape [55x3]
     num_cols = colorwheel.shape[0]
     norm = torch.sum(normalized_flow**2, dim=1).sqrt()
-    a = torch.atan2(-normalized_flow[:, 1, :, :], -normalized_flow[:, 0, :, :]) / torch.pi
+    a = (
+        torch.atan2(-normalized_flow[:, 1, :, :], -normalized_flow[:, 0, :, :])
+        / torch.pi
+    )
     fk = (a + 1) / 2 * (num_cols - 1)
     k0 = torch.floor(fk).to(torch.long)
     k1 = k0 + 1
@@ -66,7 +72,7 @@ def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
         col1 = tmp[k1] / 255.0
         col = (1 - f) * col0 + f * col1
         col = 1 - norm * (1 - col)
-        flow_image[:, c, :, :] = torch.floor(255. * col)
+        flow_image[:, c, :, :] = torch.floor(255.0 * col)
     return flow_image
 
 
@@ -94,25 +100,27 @@ def _make_colorwheel() -> torch.Tensor:
 
     # RY
     colorwheel[0:RY, 0] = 255
-    colorwheel[0:RY, 1] = torch.floor(255. * torch.arange(0., RY) / RY)
+    colorwheel[0:RY, 1] = torch.floor(255.0 * torch.arange(0.0, RY) / RY)
     col = col + RY
     # YG
-    colorwheel[col : col + YG, 0] = 255 - torch.floor(255. * torch.arange(0., YG) / YG)
+    colorwheel[col : col + YG, 0] = 255 - torch.floor(
+        255.0 * torch.arange(0.0, YG) / YG
+    )
     colorwheel[col : col + YG, 1] = 255
     col = col + YG
     # GC
     colorwheel[col : col + GC, 1] = 255
-    colorwheel[col : col + GC, 2] = torch.floor(255. * torch.arange(0., GC) / GC)
+    colorwheel[col : col + GC, 2] = torch.floor(255.0 * torch.arange(0.0, GC) / GC)
     col = col + GC
     # CB
-    colorwheel[col : col + CB, 1] = 255 - torch.floor(255. * torch.arange(CB) / CB)
+    colorwheel[col : col + CB, 1] = 255 - torch.floor(255.0 * torch.arange(CB) / CB)
     colorwheel[col : col + CB, 2] = 255
     col = col + CB
     # BM
     colorwheel[col : col + BM, 2] = 255
-    colorwheel[col : col + BM, 0] = torch.floor(255. * torch.arange(0., BM) / BM)
+    colorwheel[col : col + BM, 0] = torch.floor(255.0 * torch.arange(0.0, BM) / BM)
     col = col + BM
     # MR
-    colorwheel[col : col + MR, 2] = 255 - torch.floor(255. * torch.arange(MR) / MR)
+    colorwheel[col : col + MR, 2] = 255 - torch.floor(255.0 * torch.arange(MR) / MR)
     colorwheel[col : col + MR, 0] = 255
     return colorwheel

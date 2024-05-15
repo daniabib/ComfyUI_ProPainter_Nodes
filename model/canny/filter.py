@@ -32,9 +32,9 @@ def _compute_padding(kernel_size: List[int]) -> List[int]:
 def filter2d(
     input: torch.Tensor,
     kernel: torch.Tensor,
-    border_type: str = 'reflect',
+    border_type: str = "reflect",
     normalized: bool = False,
-    padding: str = 'same',
+    padding: str = "same",
 ) -> torch.Tensor:
     r"""Convolve a tensor with a 2d kernel.
 
@@ -83,7 +83,7 @@ def filter2d(
     if not isinstance(border_type, str):
         raise TypeError(f"Input border_type is not string. Got {type(border_type)}")
 
-    if border_type not in ['constant', 'reflect', 'replicate', 'circular']:
+    if border_type not in ["constant", "reflect", "replicate", "circular"]:
         raise ValueError(
             f"Invalid border type, we expect 'constant', \
         'reflect', 'replicate', 'circular'. Got:{border_type}"
@@ -92,14 +92,20 @@ def filter2d(
     if not isinstance(padding, str):
         raise TypeError(f"Input padding is not string. Got {type(padding)}")
 
-    if padding not in ['valid', 'same']:
-        raise ValueError(f"Invalid padding mode, we expect 'valid' or 'same'. Got: {padding}")
+    if padding not in ["valid", "same"]:
+        raise ValueError(
+            f"Invalid padding mode, we expect 'valid' or 'same'. Got: {padding}"
+        )
 
     if not len(input.shape) == 4:
         raise ValueError(f"Invalid input shape, we expect BxCxHxW. Got: {input.shape}")
 
-    if (not len(kernel.shape) == 3) and not ((kernel.shape[0] == 0) or (kernel.shape[0] == input.shape[0])):
-        raise ValueError(f"Invalid kernel shape, we expect 1xHxW or BxHxW. Got: {kernel.shape}")
+    if (not len(kernel.shape) == 3) and not (
+        (kernel.shape[0] == 0) or (kernel.shape[0] == input.shape[0])
+    ):
+        raise ValueError(
+            f"Invalid kernel shape, we expect 1xHxW or BxHxW. Got: {kernel.shape}"
+        )
 
     # prepare kernel
     b, c, h, w = input.shape
@@ -113,7 +119,7 @@ def filter2d(
     height, width = tmp_kernel.shape[-2:]
 
     # pad the input tensor
-    if padding == 'same':
+    if padding == "same":
         padding_shape: List[int] = _compute_padding([height, width])
         input = F.pad(input, padding_shape, mode=border_type)
 
@@ -124,7 +130,7 @@ def filter2d(
     # convolve the tensor with the kernel.
     output = F.conv2d(input, tmp_kernel, groups=tmp_kernel.size(0), padding=0, stride=1)
 
-    if padding == 'same':
+    if padding == "same":
         out = output.view(b, c, h, w)
     else:
         out = output.view(b, c, h - height + 1, w - width + 1)
@@ -136,9 +142,9 @@ def filter2d_separable(
     input: torch.Tensor,
     kernel_x: torch.Tensor,
     kernel_y: torch.Tensor,
-    border_type: str = 'reflect',
+    border_type: str = "reflect",
     normalized: bool = False,
-    padding: str = 'same',
+    padding: str = "same",
 ) -> torch.Tensor:
     r"""Convolve a tensor with two 1d kernels, in x and y directions.
 
@@ -187,7 +193,10 @@ def filter2d_separable(
 
 
 def filter3d(
-    input: torch.Tensor, kernel: torch.Tensor, border_type: str = 'replicate', normalized: bool = False
+    input: torch.Tensor,
+    kernel: torch.Tensor,
+    border_type: str = "replicate",
+    normalized: bool = False,
 ) -> torch.Tensor:
     r"""Convolve a tensor with a 3d kernel.
 
@@ -258,10 +267,14 @@ def filter3d(
         raise TypeError(f"Input border_type is not string. Got {type(kernel)}")
 
     if not len(input.shape) == 5:
-        raise ValueError(f"Invalid input shape, we expect BxCxDxHxW. Got: {input.shape}")
+        raise ValueError(
+            f"Invalid input shape, we expect BxCxDxHxW. Got: {input.shape}"
+        )
 
     if not len(kernel.shape) == 4 and kernel.shape[0] != 1:
-        raise ValueError(f"Invalid kernel shape, we expect 1xDxHxW. Got: {kernel.shape}")
+        raise ValueError(
+            f"Invalid kernel shape, we expect 1xDxHxW. Got: {kernel.shape}"
+        )
 
     # prepare kernel
     b, c, d, h, w = input.shape
@@ -269,7 +282,9 @@ def filter3d(
 
     if normalized:
         bk, dk, hk, wk = kernel.shape
-        tmp_kernel = normalize_kernel2d(tmp_kernel.view(bk, dk, hk * wk)).view_as(tmp_kernel)
+        tmp_kernel = normalize_kernel2d(tmp_kernel.view(bk, dk, hk * wk)).view_as(
+            tmp_kernel
+        )
 
     tmp_kernel = tmp_kernel.expand(-1, c, -1, -1, -1)
 
@@ -280,9 +295,17 @@ def filter3d(
 
     # kernel and input tensor reshape to align element-wise or batch-wise params
     tmp_kernel = tmp_kernel.reshape(-1, 1, depth, height, width)
-    input_pad = input_pad.view(-1, tmp_kernel.size(0), input_pad.size(-3), input_pad.size(-2), input_pad.size(-1))
+    input_pad = input_pad.view(
+        -1,
+        tmp_kernel.size(0),
+        input_pad.size(-3),
+        input_pad.size(-2),
+        input_pad.size(-1),
+    )
 
     # convolve the tensor with the kernel.
-    output = F.conv3d(input_pad, tmp_kernel, groups=tmp_kernel.size(0), padding=0, stride=1)
+    output = F.conv3d(
+        input_pad, tmp_kernel, groups=tmp_kernel.size(0), padding=0, stride=1
+    )
 
     return output.view(b, c, d, h, w)
