@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 
-import comfy.model_management as model_management
+from comfy import model_management
 
 from .propainter_inference import compute_flow, complete_flow, image_propagation, feature_propagation
-from .utils.image_util import resize_images, convert_image_to_frames, read_masks, to_tensors
+from .utils.image_utils import resize_images, convert_image_to_frames, read_masks, to_tensors
 from .utils.model_utils import load_raft_model, load_recurrent_flow_model, load_inpaint_model
 
 from icecream import ic
