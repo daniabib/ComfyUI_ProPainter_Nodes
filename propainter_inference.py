@@ -11,7 +11,7 @@ from .model.propainter import InpaintGenerator
 from numpy.typing import NDArray
 
 # For Debbuging only
-from .utils.img_util import imwrite 
+from .utils.image_utils import imwrite 
 from icecream import ic
 
 
