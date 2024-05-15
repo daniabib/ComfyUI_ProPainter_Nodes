@@ -76,23 +76,9 @@ class ProPainter:
                               neighbor_length: int,
                               subvideo_length: int,
                               raft_iter: int,
-                              fp16) -> tuple[torch.Tensor]:
-        ic({type(image)})
-        ic({image.size()})
-        ic({type(mask)})
-        ic({mask.size()})
+                              fp16) -> tuple[torch.Tensor]:        
         
-        ic(width)
-        ic(height)
-        ic(mask_dilates)
-        ic(flow_mask_dilates)
-        ic(ref_stride)
-        ic(neighbor_length)
-        ic(fp16)
-        
-        # device = get_device()
         device = model_management.get_torch_device()
-        ic(device)
         
         # Use fp16 precision during inference to reduce running memory cost
         use_half = True if fp16 == "enable" else False 
@@ -102,26 +88,13 @@ class ProPainter:
         frames = convert_image_to_frames(image)
         input_size = frames[0].size
         
-        ic(type(frames))
-        ic(len(frames))
-        ic(type(frames[0]))
-        ic(frames[0].size)
-        ic(frames[0].mode)
-        ic(input_size)
         
         output_size = (width, height)
         
         frames, process_size = resize_images(frames, input_size, output_size)   
-        ic(frames[0].size)
                 
         flow_masks, masks_dilated = read_masks(mask,  input_size, output_size, mask.size(dim=0), flow_mask_dilates, mask_dilates)
 
-        ic(type(flow_masks[0]))
-        ic(flow_masks[0].size)
-        ic(flow_masks[0].mode) # L
-        ic(type(masks_dilated[0]))
-        ic(masks_dilated[0].size)
-        ic(masks_dilated[0].mode) # L
         
         original_frames = [np.array(f).astype(np.uint8) for f in frames]
         frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1    
@@ -129,13 +102,6 @@ class ProPainter:
         masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
         frames, flow_masks, masks_dilated = frames.to(device), flow_masks.to(device), masks_dilated.to(device)
         
-        ic("-------- AFTER to_tensor() transformation --------")
-        ic( type(frames))
-        ic(frames.size())
-        ic(type(flow_masks))
-        ic(flow_masks.size())
-        ic(type(masks_dilated))
-        ic(masks_dilated.size())
 
         fix_raft = load_raft_model(device)         
         fix_flow_complete = load_recurrent_flow_model(device)
@@ -155,41 +121,26 @@ class ProPainter:
             
             pred_flows_bi = complete_flow(fix_flow_complete, gt_flows_bi, flow_masks, subvideo_length)
                 
-            ic("-------- AFTER COMPLETE FLOW --------")
-            ic(type(frames))
-            ic(frames.size())
-            ic(type(flow_masks))
-            ic(flow_masks.size())
-            ic(type(masks_dilated))
-            ic(masks_dilated.size())
                 
             updated_frames, updated_masks = image_propagation(model, frames, masks_dilated, pred_flows_bi, video_length, subvideo_length, process_size)
            
         comp_frames = feature_propagation(model, updated_frames, updated_masks, masks_dilated, pred_flows_bi, original_frames, video_length, subvideo_length, neighbor_length, ref_stride, process_size)
             
         output_frames = [torch.from_numpy(frame.astype(np.float32) / 255.0) for frame in comp_frames]
-        ic(output_frames[0].size())
         
         output_frames = torch.stack(output_frames)
-        ic(output_frames.size())
-        ic(output_frames.dtype)
         
         output_flow_masks = flow_masks.squeeze()
         output_masks_dilated = masks_dilated.squeeze()
 
-        ic(output_flow_masks.size())
-        ic(output_masks_dilated.size())
         
         return (output_frames, output_flow_masks, output_masks_dilated)
     
 
-# A dictionary that contains all nodes you want to export with their names
-# NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
     "ProPainter": ProPainter
 }
 
-# A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ProPainter": "ProPainter Inpainting"
 }
