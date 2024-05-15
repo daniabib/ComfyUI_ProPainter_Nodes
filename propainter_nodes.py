@@ -23,8 +23,7 @@ from .utils.model_utils import (
 
 
 class ProPainter:
-    """
-    ProPainter Inpainter
+    """ProPainter Inpainter
 
     """
 

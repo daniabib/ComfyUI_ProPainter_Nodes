@@ -31,7 +31,6 @@ def download_file_from_google_drive(file_id, save_path):
         file_id (str): File id.
         save_path (str): Save path.
     """
-
     session = requests.Session()
     URL = "https://docs.google.com/uc?export=download"
     params = {"id": file_id}
@@ -94,6 +93,7 @@ def load_file_from_url(url, model_dir=None, progress=True, file_name=None):
             Default: None.
         progress (bool): Whether to show the download progress. Default: True.
         file_name (str): The downloaded file name. If None, use the file name in the url. Default: None.
+
     Returns:
         str: The path to the downloaded file.
     """

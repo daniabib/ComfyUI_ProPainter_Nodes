@@ -8,7 +8,7 @@ from torchvision.transforms.functional import to_pil_image
 from numpy.typing import NDArray
 
 
-class Stack(object):
+class Stack:
     def __init__(self, roll=False):
         self.roll = roll
 
@@ -28,9 +28,10 @@ class Stack(object):
             raise NotImplementedError(f"Image mode {mode}")
 
 
-class ToTorchFormatTensor(object):
+class ToTorchFormatTensor:
     """Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]
-    to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]"""
+    to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
+    """
 
     # TODO: Check how this function is working with the comfy workflow.
     def __init__(self, div=True):
@@ -54,8 +55,7 @@ class ToTorchFormatTensor(object):
 def resize_images(
     images: list[Image.Image], input_size: tuple[int, int], output_size: tuple[int, int]
 ) -> tuple[list[Image.Image], tuple[int, int]]:
-    """
-    Resizes each image in the list to a new size divisible by 8.
+    """Resizes each image in the list to a new size divisible by 8.
 
     Returns:
         A list of resized images with dimensions divisible by 8 and process size.
@@ -72,8 +72,7 @@ def resize_images(
 
 
 def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """
-    Convert a batch of PyTorch tensors into a list of PIL Image frames
+    """Convert a batch of PyTorch tensors into a list of PIL Image frames
 
     Args:
     images (torch.Tensor): A batch of images represented as tensors.
@@ -100,8 +99,7 @@ def binary_mask(mask: np.ndarray, th: float = 0.1) -> np.ndarray:
 
 
 def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """
-    Convert a batch of PyTorch tensors into a list of PIL Image frames
+    """Convert a batch of PyTorch tensors into a list of PIL Image frames
 
     Args:
     images (torch.Tensor): A batch of images represented as tensors.
@@ -131,8 +129,7 @@ def read_masks(
     flow_mask_dilates=8,
     mask_dilates=5,
 ) -> tuple[list[Image.Image], list[Image.Image]]:
-    """
-    TODO: Docstring.
+    """TODO: Docstring.
     """
     mask_imgs = convert_mask_to_frames(masks)
     mask_imgs, _ = resize_images(mask_imgs, input_size, output_size)
