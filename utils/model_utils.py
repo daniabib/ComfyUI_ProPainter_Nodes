@@ -45,3 +45,13 @@ def load_inpaint_model(device: device) -> InpaintGenerator:
     inpaint_model = InpaintGenerator(model_path=model_path).to(device)
     inpaint_model.eval()
     return inpaint_model
+
+
+def initialize_models(
+    device: device,
+) -> tuple[RAFT_bi, RecurrentFlowCompleteNet, InpaintGenerator]:
+    "Return initialized inference models."
+    raft_model = load_raft_model(device)
+    flow_model = load_recurrent_flow_model(device)
+    inpaint_model = load_inpaint_model(device)
+    return raft_model, flow_model, inpaint_model

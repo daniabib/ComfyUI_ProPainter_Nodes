@@ -136,3 +136,20 @@ def read_masks(
 
 def to_tensors():
     return transforms.Compose([Stack(), ToTorchFormatTensor()])
+
+
+def prepare_frames_and_masks(frames, mask, node_config, device):
+    frames = resize_images(frames, node_config)
+
+    flow_masks, masks_dilated = read_masks(mask, node_config)
+
+    original_frames = [np.array(f).astype(np.uint8) for f in frames]
+    frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1
+    flow_masks: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
+    masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
+    frames, flow_masks, masks_dilated = (
+        frames.to(device),
+        flow_masks.to(device),
+        masks_dilated.to(device),
+    )
+    return frames, flow_masks, masks_dilated, original_frames

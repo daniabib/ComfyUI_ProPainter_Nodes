@@ -10,21 +10,12 @@ from .propainter_inference import (
     image_propagation,
     feature_propagation,
 )
-from .utils.image_utils import (
-    resize_images,
-    convert_image_to_frames,
-    read_masks,
-    to_tensors,
-)
-from .utils.model_utils import (
-    load_raft_model,
-    load_recurrent_flow_model,
-    load_inpaint_model,
-)
+from .utils.image_utils import convert_image_to_frames, prepare_frames_and_masks
+from .utils.model_utils import initialize_models
 
 
 class ProPainterInpaint:
-    """ComfyUI Node for performing inpainting on video frames using the ProPainter model."""
+    """ComfyUI Node for performing inpainting on video frames using ProPainter."""
 
     def __init__(self):
         pass
@@ -118,24 +109,11 @@ class ProPainterInpaint:
         if device == torch.device("cpu"):
             use_half = False
 
-        frames = resize_images(frames, node_config)
-
-        flow_masks, masks_dilated = read_masks(mask, node_config)
-
-        original_frames = [np.array(f).astype(np.uint8) for f in frames]
-        frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1
-        flow_masks: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
-        masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
-        frames, flow_masks, masks_dilated = (
-            frames.to(device),
-            flow_masks.to(device),
-            masks_dilated.to(device),
+        frames, flow_masks, masks_dilated, original_frames = prepare_frames_and_masks(
+            frames, mask, node_config, device
         )
 
-        raft_model = load_raft_model(device)
-        flow_model = load_recurrent_flow_model(device)
-        inpaint_model = load_inpaint_model(device)
-
+        raft_model, flow_model, inpaint_model = initialize_models(device)
         print(f"\nProcessing  {node_config.video_length} frames...")
 
         with torch.no_grad():

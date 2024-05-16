@@ -56,7 +56,9 @@ def get_ref_index(
                 ref_index.append(i)
     else:
         start_idx = max(0, mid_neighbor_id - config.ref_stride * (ref_num // 2))
-        end_idx = min(config.video_length, mid_neighbor_id + config.ref_stride * (ref_num // 2))
+        end_idx = min(
+            config.video_length, mid_neighbor_id + config.ref_stride * (ref_num // 2)
+        )
         for i in range(start_idx, end_idx, config.ref_stride):
             if i not in neighbor_ids:
                 if len(ref_index) > ref_num:
@@ -168,7 +170,7 @@ def image_propagation(
     frames: torch.Tensor,
     masks_dilated: torch.Tensor,
     prediction_flows: tuple[torch.Tensor, torch.Tensor],
-    config: ProPainterConfig
+    config: ProPainterConfig,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Propagate inpainted images across video frames.
 
@@ -239,7 +241,7 @@ def feature_propagation(
     masks_dilated: torch.Tensor,
     prediction_flows: tuple[torch.Tensor, torch.Tensor],
     original_frames: NDArray,
-    config: ProPainterConfig
+    config: ProPainterConfig,
 ) -> list[NDArray]:
     """Propagate inpainted features across video frames.
 
@@ -250,12 +252,17 @@ def feature_propagation(
     comp_frames = [None] * config.video_length
 
     neighbor_stride = config.neighbor_length // 2
-    ref_num = config.subvideo_length // config.ref_stride if config.video_length > config.subvideo_length else -1
+    ref_num = (
+        config.subvideo_length // config.ref_stride
+        if config.video_length > config.subvideo_length
+        else -1
+    )
 
     for f in tqdm(range(0, config.video_length, neighbor_stride)):
         neighbor_ids = list(
             range(
-                max(0, f - neighbor_stride), min(config.video_length, f + neighbor_stride + 1)
+                max(0, f - neighbor_stride),
+                min(config.video_length, f + neighbor_stride + 1),
             )
         )
         ref_ids = get_ref_index(f, neighbor_ids, config, ref_num)
