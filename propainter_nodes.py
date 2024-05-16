@@ -136,10 +136,10 @@ class ProPainterInpaint:
         flow_model = load_recurrent_flow_model(device)
         inpaint_model = load_inpaint_model(device)
 
-        print(f"\nProcessing  {video_length} frames...")
+        print(f"\nProcessing  {node_config.video_length} frames...")
 
         with torch.no_grad():
-            gt_flows_bi = compute_flow(raft_model, frames, raft_iter, video_length)
+            gt_flows_bi = compute_flow(raft_model, frames, node_config)
 
             if use_half:
                 frames, flow_masks, masks_dilated = (
@@ -152,17 +152,11 @@ class ProPainterInpaint:
                 inpaint_model = inpaint_model.half()
 
             pred_flows_bi = complete_flow(
-                flow_model, gt_flows_bi, flow_masks, subvideo_length
+                flow_model, gt_flows_bi, flow_masks, node_config.subvideo_length
             )
 
             updated_frames, updated_masks = image_propagation(
-                inpaint_model,
-                frames,
-                masks_dilated,
-                pred_flows_bi,
-                video_length,
-                subvideo_length,
-                node_config.process_size,
+                inpaint_model, frames, masks_dilated, pred_flows_bi, node_config
             )
 
         comp_frames = feature_propagation(
@@ -172,11 +166,7 @@ class ProPainterInpaint:
             masks_dilated,
             pred_flows_bi,
             original_frames,
-            video_length,
-            subvideo_length,
-            neighbor_length,
-            ref_stride,
-            node_config.process_size,
+            node_config,
         )
 
         output_frames = [

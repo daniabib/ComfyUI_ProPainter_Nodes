@@ -45,20 +45,19 @@ class ProPainterConfig:
 def get_ref_index(
     mid_neighbor_id: int,
     neighbor_ids: list[int],
-    length: int,
-    ref_stride: int = 10,
+    config: ProPainterConfig,
     ref_num: int = -1,
 ) -> list[int]:
     """Calculate reference indices for frames based on the provided parameters."""
     ref_index = []
     if ref_num == -1:
-        for i in range(0, length, ref_stride):
+        for i in range(0, config.video_length, config.ref_stride):
             if i not in neighbor_ids:
                 ref_index.append(i)
     else:
-        start_idx = max(0, mid_neighbor_id - ref_stride * (ref_num // 2))
-        end_idx = min(length, mid_neighbor_id + ref_stride * (ref_num // 2))
-        for i in range(start_idx, end_idx, ref_stride):
+        start_idx = max(0, mid_neighbor_id - config.ref_stride * (ref_num // 2))
+        end_idx = min(config.video_length, mid_neighbor_id + config.ref_stride * (ref_num // 2))
+        for i in range(start_idx, end_idx, config.ref_stride):
             if i not in neighbor_ids:
                 if len(ref_index) > ref_num:
                     break
@@ -67,7 +66,7 @@ def get_ref_index(
 
 
 def compute_flow(
-    raft_model: RAFT_bi, frames: torch.Tensor, raft_iter: int, video_length: int
+    raft_model: RAFT_bi, frames: torch.Tensor, config: ProPainterConfig
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute forward and backward optical flows using the RAFT model."""
     if frames.size(dim=-1) <= 640:
@@ -82,13 +81,15 @@ def compute_flow(
     # use fp32 for RAFT
     if frames.size(dim=1) > short_clip_len:
         gt_flows_f_list, gt_flows_b_list = [], []
-        for chunck in range(0, video_length, short_clip_len):
-            end_f = min(video_length, chunck + short_clip_len)
+        for chunck in range(0, config.video_length, short_clip_len):
+            end_f = min(config.video_length, chunck + short_clip_len)
             if chunck == 0:
-                flows_f, flows_b = raft_model(frames[:, chunck:end_f], iters=raft_iter)
+                flows_f, flows_b = raft_model(
+                    frames[:, chunck:end_f], iters=config.raft_iter
+                )
             else:
                 flows_f, flows_b = raft_model(
-                    frames[:, chunck - 1 : end_f], iters=raft_iter
+                    frames[:, chunck - 1 : end_f], iters=config.raft_iter
                 )
 
             gt_flows_f_list.append(flows_f)
@@ -99,7 +100,7 @@ def compute_flow(
         gt_flows_b = torch.cat(gt_flows_b_list, dim=1)
         gt_flows_bi = (gt_flows_f, gt_flows_b)
     else:
-        gt_flows_bi = raft_model(frames, iters=raft_iter)
+        gt_flows_bi = raft_model(frames, iters=config.raft_iter)
         torch.cuda.empty_cache()
 
     return gt_flows_bi
@@ -167,27 +168,25 @@ def image_propagation(
     frames: torch.Tensor,
     masks_dilated: torch.Tensor,
     prediction_flows: tuple[torch.Tensor, torch.Tensor],
-    video_length: int,
-    subvideo_length: int,
-    process_size: tuple[int, int],
+    config: ProPainterConfig
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Propagate inpainted images across video frames.
 
     If the video length exceeds a defined threshold, the process is segmented and handled in chunks.
     """
-    process_width, process_height = process_size
+    process_width, process_height = config.process_size
     masked_frames = frames * (1 - masks_dilated)
     subvideo_length_img_prop = min(
-        100, subvideo_length
+        100, config.subvideo_length
     )  # ensure a minimum of 100 frames for image propagation
-    if video_length > subvideo_length_img_prop:
+    if config.video_length > subvideo_length_img_prop:
         updated_frames, updated_masks = [], []
         pad_len = 10
-        for f in range(0, video_length, subvideo_length_img_prop):
+        for f in range(0, config.video_length, subvideo_length_img_prop):
             s_f = max(0, f - pad_len)
-            e_f = min(video_length, f + subvideo_length_img_prop + pad_len)
+            e_f = min(config.video_length, f + subvideo_length_img_prop + pad_len)
             pad_len_s = max(0, f) - s_f
-            pad_len_e = e_f - min(video_length, f + subvideo_length_img_prop)
+            pad_len_e = e_f - min(config.video_length, f + subvideo_length_img_prop)
             b, t, _, _, _ = masks_dilated[:, s_f:e_f].size()
             pred_flows_bi_sub = (
                 prediction_flows[0][:, s_f : e_f - 1],
@@ -240,30 +239,26 @@ def feature_propagation(
     masks_dilated: torch.Tensor,
     prediction_flows: tuple[torch.Tensor, torch.Tensor],
     original_frames: NDArray,
-    video_length: int,
-    subvideo_length: int,
-    neighbor_length: int,
-    ref_stride: int,
-    process_size: tuple[int, int],
+    config: ProPainterConfig
 ) -> list[NDArray]:
     """Propagate inpainted features across video frames.
 
     The process is segmented and handled in chunks if the video length exceeds a defined threshold.
     """
-    process_width, process_height = process_size
+    process_width, process_height = config.process_size
 
-    comp_frames = [None] * video_length
+    comp_frames = [None] * config.video_length
 
-    neighbor_stride = neighbor_length // 2
-    ref_num = subvideo_length // ref_stride if video_length > subvideo_length else -1
+    neighbor_stride = config.neighbor_length // 2
+    ref_num = config.subvideo_length // config.ref_stride if config.video_length > config.subvideo_length else -1
 
-    for f in tqdm(range(0, video_length, neighbor_stride)):
+    for f in tqdm(range(0, config.video_length, neighbor_stride)):
         neighbor_ids = list(
             range(
-                max(0, f - neighbor_stride), min(video_length, f + neighbor_stride + 1)
+                max(0, f - neighbor_stride), min(config.video_length, f + neighbor_stride + 1)
             )
         )
-        ref_ids = get_ref_index(f, neighbor_ids, video_length, ref_stride, ref_num)
+        ref_ids = get_ref_index(f, neighbor_ids, config, ref_num)
         selected_imgs = updated_frames[:, neighbor_ids + ref_ids, :, :, :]
         selected_masks = masks_dilated[:, neighbor_ids + ref_ids, :, :, :]
         selected_update_masks = updated_masks[:, neighbor_ids + ref_ids, :, :, :]
