@@ -1,7 +1,7 @@
 """Towards An End-to-End Framework for Video Inpainting"""
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 import torchvision
 

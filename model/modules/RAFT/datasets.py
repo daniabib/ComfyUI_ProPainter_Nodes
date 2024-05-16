@@ -2,7 +2,7 @@
 
 import numpy as np
 import torch
-import torch.utils.data as data
+from torch.utils import data
 
 import os
 import random

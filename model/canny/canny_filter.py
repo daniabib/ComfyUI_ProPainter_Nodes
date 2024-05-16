@@ -2,7 +2,7 @@ import math
 from typing import Tuple
 
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from .gaussian import gaussian_blur2d
@@ -89,9 +89,7 @@ def canny(
 
     if low_threshold > high_threshold:
         raise ValueError(
-            "Invalid input thresholds. low_threshold should be smaller than the high_threshold. Got: {}>{}".format(
-                low_threshold, high_threshold
-            )
+            f"Invalid input thresholds. low_threshold should be smaller than the high_threshold. Got: {low_threshold}>{high_threshold}"
         )
 
     if low_threshold < 0 and low_threshold > 1:
@@ -235,10 +233,8 @@ class Canny(nn.Module):
 
         if low_threshold > high_threshold:
             raise ValueError(
-                "Invalid input thresholds. low_threshold should be\
-                             smaller than the high_threshold. Got: {}>{}".format(
-                    low_threshold, high_threshold
-                )
+                f"Invalid input thresholds. low_threshold should be\
+                             smaller than the high_threshold. Got: {low_threshold}>{high_threshold}"
             )
 
         if low_threshold < 0 or low_threshold > 1:

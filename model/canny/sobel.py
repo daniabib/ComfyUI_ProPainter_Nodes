@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from .kernels import (
@@ -258,7 +258,6 @@ class SpatialGradient3d(nn.Module):
         self.order: int = order
         self.mode: str = mode
         self.kernel = get_spatial_gradient_kernel3d(mode, order)
-        return
 
     def __repr__(self) -> str:
         return (

@@ -1,6 +1,6 @@
 import argparse
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 from .RAFT import RAFT
@@ -212,7 +212,7 @@ class FlowLoss(nn.Module):
             ) / torch.mean(masks[i])
             l1_loss += self.l1_criterion(
                 pred_flows[i] * (1 - masks[i]), gt_flows[i] * (1 - masks[i])
-            ) / torch.mean((1 - masks[i]))
+            ) / torch.mean(1 - masks[i])
 
             smooth_loss = smoothness_loss(
                 combined_flow.reshape(-1, 2, h, w), masks[i].reshape(-1, 1, h, w)

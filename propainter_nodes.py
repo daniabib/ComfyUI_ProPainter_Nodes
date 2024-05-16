@@ -22,11 +22,7 @@ from .utils.model_utils import (
 )
 
 
-class ProPainter:
-    """ProPainter Inpainter
-
-    """
-
+class ProPainterInpaint:
     def __init__(self):
         pass
 
@@ -93,10 +89,11 @@ class ProPainter:
         raft_iter: int,
         fp16,
     ) -> tuple[torch.Tensor]:
+        """Perform inpainting on images input using the ProPainter model inference."""
         device = model_management.get_torch_device()
 
         # Use fp16 precision during inference to reduce running memory cost
-        use_half = True if fp16 == "enable" else False
+        use_half = fp16 == "enable"
         if device == torch.device("cpu"):
             use_half = False
 
@@ -186,6 +183,6 @@ class ProPainter:
         return (output_frames, output_flow_masks, output_masks_dilated)
 
 
-NODE_CLASS_MAPPINGS = {"ProPainter": ProPainter}
+NODE_CLASS_MAPPINGS = {"ProPainterInpaint": ProPainterInpaint}
 
-NODE_DISPLAY_NAME_MAPPINGS = {"ProPainter": "ProPainter Inpainting"}
+NODE_DISPLAY_NAME_MAPPINGS = {"ProPainterInpaint": "ProPainter Inpainting"}

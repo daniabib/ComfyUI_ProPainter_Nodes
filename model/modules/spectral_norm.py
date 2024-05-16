@@ -6,7 +6,7 @@ import torch
 from torch.nn.functional import normalize
 
 
-class SpectralNorm(object):
+class SpectralNorm:
     # Invariant before and after each forward call:
     #   u = normalize(W @ v)
     # NB: At initialization, this invariant is not enforced
@@ -24,7 +24,7 @@ class SpectralNorm(object):
         if n_power_iterations <= 0:
             raise ValueError(
                 "Expected n_power_iterations to be positive, but "
-                "got n_power_iterations={}".format(n_power_iterations)
+                f"got n_power_iterations={n_power_iterations}"
             )
         self.n_power_iterations = n_power_iterations
         self.eps = eps
@@ -124,7 +124,7 @@ class SpectralNorm(object):
             if isinstance(hook, SpectralNorm) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
-                    "the same parameter {}".format(name)
+                    f"the same parameter {name}"
                 )
 
         fn = SpectralNorm(name, n_power_iterations, dim, eps)
@@ -158,7 +158,7 @@ class SpectralNorm(object):
 
 # This is a top level class because Py2 pickle doesn't like inner class nor an
 # instancemethod.
-class SpectralNormLoadStateDictPreHook(object):
+class SpectralNormLoadStateDictPreHook:
     # See docstring of SpectralNorm._version on the changes to spectral_norm.
     def __init__(self, fn):
         self.fn = fn
@@ -198,7 +198,7 @@ class SpectralNormLoadStateDictPreHook(object):
 
 # This is a top level class because Py2 pickle doesn't like inner class nor an
 # instancemethod.
-class SpectralNormStateDictHook(object):
+class SpectralNormStateDictHook:
     # See docstring of SpectralNorm._version on the changes to spectral_norm.
     def __init__(self, fn):
         self.fn = fn
@@ -208,9 +208,7 @@ class SpectralNormStateDictHook(object):
             local_metadata["spectral_norm"] = {}
         key = self.fn.name + ".version"
         if key in local_metadata["spectral_norm"]:
-            raise RuntimeError(
-                "Unexpected key in metadata['spectral_norm']: {}".format(key)
-            )
+            raise RuntimeError(f"Unexpected key in metadata['spectral_norm']: {key}")
         local_metadata["spectral_norm"][key] = self.fn._version
 
 
@@ -289,7 +287,7 @@ def remove_spectral_norm(module, name="weight"):
             del module._forward_pre_hooks[k]
             return module
 
-    raise ValueError("spectral_norm of '{}' not found in {}".format(name, module))
+    raise ValueError(f"spectral_norm of '{name}' not found in {module}")
 
 
 def use_spectral_norm(module, use_sn=False):

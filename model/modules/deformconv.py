@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.nn import init as init
 from torch.nn.modules.utils import _pair, _single
 import math

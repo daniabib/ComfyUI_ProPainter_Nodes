@@ -129,8 +129,7 @@ def read_masks(
     flow_mask_dilates=8,
     mask_dilates=5,
 ) -> tuple[list[Image.Image], list[Image.Image]]:
-    """TODO: Docstring.
-    """
+    """TODO: Docstring."""
     mask_imgs = convert_mask_to_frames(masks)
     mask_imgs, _ = resize_images(mask_imgs, input_size, output_size)
     masks_dilated = []

@@ -310,13 +310,13 @@ def get_spatial_gradient_kernel2d(mode: str, order: int) -> torch.Tensor:
     """
     if mode not in ["sobel", "diff"]:
         raise TypeError(
-            "mode should be either sobel\
-                         or diff. Got {}".format(mode)
+            f"mode should be either sobel\
+                         or diff. Got {mode}"
         )
     if order not in [1, 2]:
         raise TypeError(
-            "order should be either 1 or 2\
-                         Got {}".format(order)
+            f"order should be either 1 or 2\
+                         Got {order}"
         )
     if mode == "sobel" and order == 1:
         kernel: torch.Tensor = get_sobel_kernel2d()
@@ -338,13 +338,13 @@ def get_spatial_gradient_kernel3d(
     operators: sobel, diff."""
     if mode not in ["sobel", "diff"]:
         raise TypeError(
-            "mode should be either sobel\
-                         or diff. Got {}".format(mode)
+            f"mode should be either sobel\
+                         or diff. Got {mode}"
         )
     if order not in [1, 2]:
         raise TypeError(
-            "order should be either 1 or 2\
-                         Got {}".format(order)
+            f"order should be either 1 or 2\
+                         Got {order}"
         )
     if mode == "sobel":
         raise NotImplementedError("Sobel kernel for 3d gradient is not implemented yet")
@@ -387,7 +387,7 @@ def get_gaussian_kernel1d(
         or (kernel_size <= 0)
     ):
         raise TypeError(
-            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+            "kernel_size must be an odd positive integer. " f"Got {kernel_size}"
         )
     window_1d: torch.Tensor = gaussian(kernel_size, sigma)
     return window_1d
@@ -424,7 +424,7 @@ def get_gaussian_discrete_kernel1d(
         or (kernel_size <= 0)
     ):
         raise TypeError(
-            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+            "kernel_size must be an odd positive integer. " f"Got {kernel_size}"
         )
     window_1d = gaussian_discrete(kernel_size, sigma)
     return window_1d
@@ -461,7 +461,7 @@ def get_gaussian_erf_kernel1d(
         or (kernel_size <= 0)
     ):
         raise TypeError(
-            "kernel_size must be an odd positive integer. " "Got {}".format(kernel_size)
+            "kernel_size must be an odd positive integer. " f"Got {kernel_size}"
         )
     window_1d = gaussian_discrete_erf(kernel_size, sigma)
     return window_1d

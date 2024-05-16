@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class ResidualBlock(nn.Module):
@@ -17,25 +17,25 @@ class ResidualBlock(nn.Module):
         if norm_fn == "group":
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
 
         elif norm_fn == "batch":
             self.norm1 = nn.BatchNorm2d(planes)
             self.norm2 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.BatchNorm2d(planes)
 
         elif norm_fn == "instance":
             self.norm1 = nn.InstanceNorm2d(planes)
             self.norm2 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == "none":
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm3 = nn.Sequential()
 
         if stride == 1:
@@ -74,28 +74,28 @@ class BottleneckBlock(nn.Module):
             self.norm1 = nn.GroupNorm(num_groups=num_groups, num_channels=planes // 4)
             self.norm2 = nn.GroupNorm(num_groups=num_groups, num_channels=planes // 4)
             self.norm3 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.GroupNorm(num_groups=num_groups, num_channels=planes)
 
         elif norm_fn == "batch":
             self.norm1 = nn.BatchNorm2d(planes // 4)
             self.norm2 = nn.BatchNorm2d(planes // 4)
             self.norm3 = nn.BatchNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.BatchNorm2d(planes)
 
         elif norm_fn == "instance":
             self.norm1 = nn.InstanceNorm2d(planes // 4)
             self.norm2 = nn.InstanceNorm2d(planes // 4)
             self.norm3 = nn.InstanceNorm2d(planes)
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.InstanceNorm2d(planes)
 
         elif norm_fn == "none":
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
             self.norm3 = nn.Sequential()
-            if not stride == 1:
+            if stride != 1:
                 self.norm4 = nn.Sequential()
 
         if stride == 1:
@@ -169,7 +169,7 @@ class BasicEncoder(nn.Module):
 
     def forward(self, x):
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (list, tuple))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
@@ -243,7 +243,7 @@ class SmallEncoder(nn.Module):
 
     def forward(self, x):
         # if input is list, combine batch dimension
-        is_list = isinstance(x, tuple) or isinstance(x, list)
+        is_list = isinstance(x, (list, tuple))
         if is_list:
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)

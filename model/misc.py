@@ -3,7 +3,7 @@ import re
 import random
 import time
 import torch
-import torch.nn as nn
+from torch import nn
 import logging
 import numpy as np
 from os import path as osp
@@ -141,14 +141,11 @@ def scandir(dir_path, suffix=None, recursive=False, full_path=False):
                 else:
                     return_path = osp.relpath(entry.path, root)
 
-                if suffix is None:
+                if suffix is None or return_path.endswith(suffix):
                     yield return_path
-                elif return_path.endswith(suffix):
-                    yield return_path
+            elif recursive:
+                yield from _scandir(entry.path, suffix=suffix, recursive=recursive)
             else:
-                if recursive:
-                    yield from _scandir(entry.path, suffix=suffix, recursive=recursive)
-                else:
-                    continue
+                continue
 
     return _scandir(dir_path, suffix=suffix, recursive=recursive)

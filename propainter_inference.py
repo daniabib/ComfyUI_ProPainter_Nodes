@@ -16,6 +16,7 @@ def get_ref_index(
     ref_stride: int = 10,
     ref_num: int = -1,
 ) -> list[int]:
+    """Calculate reference indices for frames based on the provided parameters."""
     ref_index = []
     if ref_num == -1:
         for i in range(0, length, ref_stride):
@@ -35,9 +36,7 @@ def get_ref_index(
 def compute_flow(
     raft_model: RAFT_bi, frames: torch.Tensor, raft_iter: int, video_length: int
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute forward and backward flows.
-    Optical Flow Computation: The fix_raft function is called in batches defined by short_clip_len. If the video has more frames than short_clip_len, it processes the frames in chunks to estimate the forward (flows_f) and backward (flows_b) optical flows. These flows are then concatenated to form gt_flows_f and gt_flows_b.
-    """
+    """Compute forward and backward optical flows using the RAFT model."""
     if frames.size(dim=-1) <= 640:
         short_clip_len = 12
     elif frames.size(dim=-1) <= 720:
@@ -79,7 +78,11 @@ def complete_flow(
     flow_masks: torch.Tensor,
     subvideo_length: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Complete Flow Computation: Based on the computed flows and subvideo_length, the flows are further processed to generate predicted flows using a model. This involves adjusting for padding and managing frame boundaries.
+    """Complete and refine optical flows using a recurrent flow completion model.
+
+    This function processes optical flows in chunks if the total length exceeds the specified
+    subvideo length. It uses a recurrent model to complete and refine the flows, combining
+    forward and backward flows into bidirectional flows.
     """
     flow_length = flows_tuple[0].size(dim=1)
     if flow_length > subvideo_length:
@@ -135,7 +138,9 @@ def image_propagation(
     subvideo_length: int,
     process_size: tuple[int, int],
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """The masked frames are computed by blending original frames and propagated images based on the masks. The process is again segmented if the video is longer than a defined threshold (subvideo_length_img_prop).
+    """Propagate inpainted images across video frames.
+
+    If the video length exceeds a defined threshold, the process is segmented and handled in chunks.
     """
     process_width, process_height = process_size
     masked_frames = frames * (1 - masks_dilated)
@@ -208,25 +213,23 @@ def feature_propagation(
     ref_stride: int,
     process_size: tuple[int, int],
 ) -> list[NDArray]:
-    """Feature Propagation and Transformation: This is done in a loop where features from neighboring frames are propagated using a model. The result is adjusted for color normalization and combined with original frames to produce the final composited frames.
+    """Propagate inpainted features across video frames.
+
+    The process is segmented and handled in chunks if the video length exceeds a defined threshold.
     """
     process_width, process_height = process_size
 
     comp_frames = [None] * video_length
 
     neighbor_stride = neighbor_length // 2
-    if video_length > subvideo_length:
-        ref_num = subvideo_length // ref_stride
-    else:
-        ref_num = -1
+    ref_num = subvideo_length // ref_stride if video_length > subvideo_length else -1
 
     for f in tqdm(range(0, video_length, neighbor_stride)):
-        neighbor_ids = [
-            i
-            for i in range(
+        neighbor_ids = list(
+            range(
                 max(0, f - neighbor_stride), min(video_length, f + neighbor_stride + 1)
             )
-        ]
+        )
         ref_ids = get_ref_index(f, neighbor_ids, video_length, ref_stride, ref_num)
         selected_imgs = updated_frames[:, neighbor_ids + ref_ids, :, :, :]
         selected_masks = masks_dilated[:, neighbor_ids + ref_ids, :, :, :]

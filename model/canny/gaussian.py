@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .filter import filter2d, filter2d_separable
 from .kernels import get_gaussian_kernel1d, get_gaussian_kernel2d
