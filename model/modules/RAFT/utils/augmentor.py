@@ -33,7 +33,6 @@ class FlowAugmentor:
 
     def color_transform(self, img1, img2):
         """Photometric augmentation"""
-
         # asymmetric
         if np.random.rand() < self.asymmetric_color_aug_prob:
             img1 = np.array(self.photo_aug(Image.fromarray(img1)), dtype=np.uint8)
@@ -51,7 +50,6 @@ class FlowAugmentor:
 
     def eraser_transform(self, img1, img2, bounds=[50, 100]):
         """Occlusion augmentation"""
-
         ht, wd = img1.shape[:2]
         if np.random.rand() < self.eraser_aug_prob:
             mean_color = np.mean(img2.reshape(-1, 3), axis=0)

@@ -116,11 +116,9 @@ class BidirectionalPropagation(nn.Module):
         return mask.to(mask)
 
     def forward(self, x, flows_forward, flows_backward, mask, interpolation="bilinear"):
-        """
-        x shape : [b, t, c, h, w]
+        """X shape : [b, t, c, h, w]
         return [b, t, c, h, w]
         """
-
         # For backward warping
         # pred_flows_forward for backward feature propagation
         # pred_flows_backward for forward feature propagation
@@ -367,12 +365,10 @@ class InpaintGenerator(BaseNetwork):
         interpolation="bilinear",
         t_dilation=2,
     ):
+        """Args:
+        masks_in: original mask
+        masks_updated: updated mask after image propagation
         """
-        Args:
-            masks_in: original mask
-            masks_updated: updated mask after image propagation
-        """
-
         l_t = num_local_frames
         b, t, _, ori_h, ori_w = masked_frames.size()
 

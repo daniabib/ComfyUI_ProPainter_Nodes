@@ -7,6 +7,7 @@ def flow_warp(
     x, flow, interpolation="bilinear", padding_mode="zeros", align_corners=True
 ):
     """Warp an image or a feature map with optical flow.
+
     Args:
         x (Tensor): Tensor with size (n, c, h, w).
         flow (Tensor): Tensor with size (n, h, w, 2). The last dimension is
@@ -17,6 +18,7 @@ def flow_warp(
         padding_mode (str): Padding mode: 'zeros' or 'border' or 'reflection'.
             Default: 'zeros'.
         align_corners (bool): Whether align corners. Default: True.
+
     Returns:
         Tensor: Warped image or feature map.
     """
@@ -114,9 +116,7 @@ def hamming_distance(t1, t2):
 
 
 def create_mask(mask, paddings):
-    """
-    padding: [[top, bottom], [left, right]]
-    """
+    """padding: [[top, bottom], [left, right]]"""
     shape = mask.shape
     inner_height = shape[2] - (paddings[0][0] + paddings[0][1])
     inner_width = shape[3] - (paddings[1][0] + paddings[1][1])
@@ -131,9 +131,7 @@ def create_mask(mask, paddings):
 
 
 def ternary_loss2(frame1, warp_frame21, confMask, masks, max_distance=1):
-    """
-
-    Args:
+    """Args:
         frame1: torch tensor, with shape [b * t, c, h, w]
         warp_frame21: torch tensor, with shape [b * t, c, h, w]
         confMask: confidence mask, with shape [b * t, c, h, w]

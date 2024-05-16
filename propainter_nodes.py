@@ -4,6 +4,7 @@ import torch
 from comfy import model_management
 
 from .propainter_inference import (
+    ProPainterConfig,
     compute_flow,
     complete_flow,
     image_propagation,
@@ -23,6 +24,8 @@ from .utils.model_utils import (
 
 
 class ProPainterInpaint:
+    """ComfyUI Node for performing inpainting on video frames using the ProPainter model."""
+
     def __init__(self):
         pass
 
@@ -87,31 +90,37 @@ class ProPainterInpaint:
         neighbor_length: int,
         subvideo_length: int,
         raft_iter: int,
-        fp16,
+        fp16: str,
     ) -> tuple[torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
         device = model_management.get_torch_device()
 
+        frames = convert_image_to_frames(image)
+        video_length = image.size(dim=0)
+        input_size = frames[0].size
+
+        node_config = ProPainterConfig(
+            width,
+            height,
+            mask_dilates,
+            flow_mask_dilates,
+            ref_stride,
+            neighbor_length,
+            subvideo_length,
+            raft_iter,
+            fp16,
+            video_length,
+            input_size,
+        )
+
         # Use fp16 precision during inference to reduce running memory cost
-        use_half = fp16 == "enable"
+        use_half = node_config.fp16 == "enable"
         if device == torch.device("cpu"):
             use_half = False
 
-        frames = convert_image_to_frames(image)
-        input_size = frames[0].size
+        frames = resize_images(frames, node_config)
 
-        output_size = (width, height)
-
-        frames, process_size = resize_images(frames, input_size, output_size)
-
-        flow_masks, masks_dilated = read_masks(
-            mask,
-            input_size,
-            output_size,
-            mask.size(dim=0),
-            flow_mask_dilates,
-            mask_dilates,
-        )
+        flow_masks, masks_dilated = read_masks(mask, node_config)
 
         original_frames = [np.array(f).astype(np.uint8) for f in frames]
         frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1
@@ -123,15 +132,14 @@ class ProPainterInpaint:
             masks_dilated.to(device),
         )
 
-        fix_raft = load_raft_model(device)
-        fix_flow_complete = load_recurrent_flow_model(device)
-        model = load_inpaint_model(device)
+        raft_model = load_raft_model(device)
+        flow_model = load_recurrent_flow_model(device)
+        inpaint_model = load_inpaint_model(device)
 
-        video_length = frames.size(dim=1)
         print(f"\nProcessing  {video_length} frames...")
 
         with torch.no_grad():
-            gt_flows_bi = compute_flow(fix_raft, frames, raft_iter, video_length)
+            gt_flows_bi = compute_flow(raft_model, frames, raft_iter, video_length)
 
             if use_half:
                 frames, flow_masks, masks_dilated = (
@@ -140,25 +148,25 @@ class ProPainterInpaint:
                     masks_dilated.half(),
                 )
                 gt_flows_bi = (gt_flows_bi[0].half(), gt_flows_bi[1].half())
-                fix_flow_complete = fix_flow_complete.half()
-                model = model.half()
+                flow_model = flow_model.half()
+                inpaint_model = inpaint_model.half()
 
             pred_flows_bi = complete_flow(
-                fix_flow_complete, gt_flows_bi, flow_masks, subvideo_length
+                flow_model, gt_flows_bi, flow_masks, subvideo_length
             )
 
             updated_frames, updated_masks = image_propagation(
-                model,
+                inpaint_model,
                 frames,
                 masks_dilated,
                 pred_flows_bi,
                 video_length,
                 subvideo_length,
-                process_size,
+                node_config.process_size,
             )
 
         comp_frames = feature_propagation(
-            model,
+            inpaint_model,
             updated_frames,
             updated_masks,
             masks_dilated,
@@ -168,7 +176,7 @@ class ProPainterInpaint:
             subvideo_length,
             neighbor_length,
             ref_stride,
-            process_size,
+            node_config.process_size,
         )
 
         output_frames = [

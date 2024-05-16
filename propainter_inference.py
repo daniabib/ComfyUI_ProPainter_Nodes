@@ -1,3 +1,5 @@
+from dataclasses import dataclass, field
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -7,6 +9,37 @@ from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from .model.propainter import InpaintGenerator
 
 from numpy.typing import NDArray
+
+
+@dataclass
+class FlowConfig:
+    raft_model: RAFT_bi
+    frames: torch.Tensor
+    raft_iter: int
+
+
+@dataclass
+class ProPainterConfig:
+    width: int
+    height: int
+    mask_dilates: int
+    flow_mask_dilates: int
+    ref_stride: int
+    neighbor_length: int
+    subvideo_length: int
+    raft_iter: int
+    fp16: str
+    video_length: int
+    input_size: int
+    ouput_size: int = field(init=False)
+    process_size: tuple[int, int] = field(init=False)
+
+    def __post_init__(self):
+        self.output_size = (self.width, self.height)
+        self.process_size = (
+            self.output_size[0] - self.output_size[0] % 8,
+            self.output_size[1] - self.output_size[1] % 8,
+        )
 
 
 def get_ref_index(

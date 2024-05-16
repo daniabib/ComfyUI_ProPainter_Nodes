@@ -19,8 +19,7 @@ import numpy as np
 
 
 def make_colorwheel():
-    """
-    Generates a color wheel for optical flow visualization as presented in:
+    """Generates a color wheel for optical flow visualization as presented in:
         Baker et al. "A Database and Evaluation Methodology for Optical Flow" (ICCV, 2007)
         URL: http://vision.middlebury.edu/flow/flowEval-iccv07.pdf
 
@@ -30,7 +29,6 @@ def make_colorwheel():
     Returns:
         np.ndarray: Color wheel
     """
-
     RY = 15
     YG = 6
     GC = 4
@@ -69,8 +67,7 @@ def make_colorwheel():
 
 
 def flow_uv_to_colors(u, v, convert_to_bgr=False):
-    """
-    Applies the flow color wheel to (possibly clipped) flow components u and v.
+    """Applies the flow color wheel to (possibly clipped) flow components u and v.
 
     According to the C++ source code of Daniel Scharstein
     According to the Matlab source code of Deqing Sun
@@ -108,8 +105,7 @@ def flow_uv_to_colors(u, v, convert_to_bgr=False):
 
 
 def flow_to_image(flow_uv, clip_flow=None, convert_to_bgr=False):
-    """
-    Expects a two dimensional flow image of shape.
+    """Expects a two dimensional flow image of shape.
 
     Args:
         flow_uv (np.ndarray): Flow UV image of shape [H,W,2]

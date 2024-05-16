@@ -206,7 +206,6 @@ class HD1K(FlowDataset):
 
 def fetch_dataloader(args, TRAIN_DS="C+T+K+S+H"):
     """Create the data loader for the corresponding trainign set"""
-
     if args.stage == "chairs":
         aug_params = {
             "crop_size": args.image_size,

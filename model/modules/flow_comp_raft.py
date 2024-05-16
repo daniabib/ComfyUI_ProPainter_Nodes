@@ -67,9 +67,7 @@ def smoothness_loss(flow, cmask):
 
 
 def smoothness_deltas(flow):
-    """
-    flow: [b, c, h, w]
-    """
+    """flow: [b, c, h, w]"""
     mask_x = create_mask(flow, [[0, 0], [0, 1]])
     mask_y = create_mask(flow, [[0, 1], [0, 0]])
     mask = torch.cat((mask_x, mask_y), dim=1)
@@ -95,8 +93,7 @@ def second_order_loss(flow, cmask):
 
 
 def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=0.001):
-    """
-    Compute the generalized charbonnier loss of the difference tensor x
+    """Compute the generalized charbonnier loss of the difference tensor x
     All positions where mask == 0 are not taken into account
     x: a tensor of shape [b, c, h, w]
     mask: a mask of shape [b, mc, h, w], where mask channels must be either 1 or the same as
@@ -116,8 +113,7 @@ def charbonnier_loss(x, mask=None, truncate=None, alpha=0.45, beta=1.0, epsilon=
 
 
 def second_order_deltas(flow):
-    """
-    consider the single flow first
+    """Consider the single flow first
     flow shape: [b, c, h, w]
     """
     # create mask
@@ -146,8 +142,7 @@ def second_order_deltas(flow):
 
 
 def create_mask(tensor, paddings):
-    """
-    tensor shape: [b, c, h, w]
+    """Tensor shape: [b, c, h, w]
     paddings: [2 x 2] shape list, the first row indicates up and down paddings
     the second row indicates left and right paddings
     |            |
@@ -237,9 +232,7 @@ class FlowLoss(nn.Module):
 
 
 def edgeLoss(preds_edges, edges):
-    """
-
-    Args:
+    """Args:
         preds_edges: with shape [b, c, h , w]
         edges: with shape [b, c, h, w]
 

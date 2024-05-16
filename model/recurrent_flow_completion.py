@@ -75,8 +75,7 @@ class BidirectionalPropagation(nn.Module):
         self.fusion = nn.Conv2d(2 * channel, channel, 1, 1, 0)
 
     def forward(self, x):
-        """
-        x shape : [b, t, c, h, w]
+        """X shape : [b, t, c, h, w]
         return [b, t, c, h, w]
         """
         b, t, c, h, w = x.shape
@@ -355,10 +354,9 @@ class RecurrentFlowCompleteNet(nn.Module):
         return flow, edge
 
     def forward_bidirect_flow(self, masked_flows_bi, masks):
-        """
-        Args:
-            masked_flows_bi: [masked_flows_f, masked_flows_b] | (b t-1 2 h w), (b t-1 2 h w)
-            masks: b t 1 h w
+        """Args:
+        masked_flows_bi: [masked_flows_f, masked_flows_b] | (b t-1 2 h w), (b t-1 2 h w)
+        masks: b t 1 h w
         """
         masks_forward = masks[:, :-1, ...].contiguous()
         masks_backward = masks[:, 1:, ...].contiguous()

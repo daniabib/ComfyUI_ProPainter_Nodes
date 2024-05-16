@@ -15,7 +15,7 @@ def download_model(model_url: str, model_name: str) -> str:
     """Downloads a model from a URL and returns the local path to the downloaded model."""
     return load_file_from_url(
         url=os.path.join(model_url, model_name),
-        model_dir="custom_nodes/ComfyUI-ProPainter-Nodes/weights",
+        model_dir="custom_nodes/ComfyUI_ProPainter_Nodes/weights",
         progress=True,
         file_name=None,
     )

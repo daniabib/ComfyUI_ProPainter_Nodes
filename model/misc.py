@@ -24,6 +24,7 @@ def get_root_logger(logger_name="basicsr", log_level=logging.INFO, log_file=None
     The logger will be initialized if it has not been initialized. By default a
     StreamHandler will be added. If `log_file` is specified, a FileHandler will
     also be added.
+
     Args:
         logger_name (str): root logger name. Default: 'basicsr'.
         log_file (str | None): The log filename. If specified, a FileHandler
@@ -31,6 +32,7 @@ def get_root_logger(logger_name="basicsr", log_level=logging.INFO, log_file=None
         log_level (int): The root logger level. Note that only the process of
             rank 0 is affected, while other processes will set the level to
             "Error" and be silent most of the time.
+
     Returns:
         logging.Logger: The root logger.
     """
@@ -127,7 +129,6 @@ def scandir(dir_path, suffix=None, recursive=False, full_path=False):
     Returns:
         A generator for all the interested files with relative pathes.
     """
-
     if (suffix is not None) and not isinstance(suffix, (str, tuple)):
         raise TypeError('"suffix" must be a string or tuple of strings')
 

@@ -124,8 +124,7 @@ class FusionFeedForward(nn.Module):
 
 
 def window_partition(x, window_size, n_head):
-    """
-    Args:
+    """Args:
         x: shape is (B, T, H, W, C)
         window_size (tuple[int]): window size
     Returns:
@@ -412,11 +411,11 @@ class TemporalSparseTransformer(nn.Module):
         self.mlp = FusionFeedForward(dim, t2t_params=t2t_params)
 
     def forward(self, x, fold_x_size, mask=None, T_ind=None):
-        """
-        Args:
+        """Args:
             x: image tokens, shape [B T H W C]
             fold_x_size: fold feature size, shape [60 108]
             mask: mask tokens, shape [B T H W 1]
+
         Returns:
             out_tokens: shape [B T H W C]
         """
@@ -448,11 +447,11 @@ class TemporalSparseTransformerBlock(nn.Module):
         self.depths = depths
 
     def forward(self, x, fold_x_size, l_mask=None, t_dilation=2):
-        """
-        Args:
+        """Args:
             x: image tokens, shape [B T H W C]
             fold_x_size: fold feature size, shape [60 108]
             l_mask: local mask tokens, shape [B T H W 1]
+
         Returns:
             out_tokens: shape [B T H W C]
         """

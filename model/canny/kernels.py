@@ -67,7 +67,7 @@ def _modified_bessel_0(x: torch.Tensor) -> torch.Tensor:
 
 
 def _modified_bessel_1(x: torch.Tensor) -> torch.Tensor:
-    r"""adapted from:
+    r"""Adapted from:
 
     https://github.com/Project-MONAI/MONAI/blob/master/monai/networks/layers/convutils.py
     """
@@ -89,7 +89,7 @@ def _modified_bessel_1(x: torch.Tensor) -> torch.Tensor:
 
 
 def _modified_bessel_i(n: int, x: torch.Tensor) -> torch.Tensor:
-    r"""adapted from:
+    r"""Adapted from:
 
     https://github.com/Project-MONAI/MONAI/blob/master/monai/networks/layers/convutils.py
     """
@@ -140,7 +140,6 @@ def gaussian_discrete(window_size, sigma) -> torch.Tensor:
 
 def laplacian_1d(window_size) -> torch.Tensor:
     r"""One could also use the Laplacian of Gaussian formula to design the filter."""
-
     filter_1d = torch.ones(window_size)
     filter_1d[window_size // 2] = 1 - window_size
     laplacian_1d: torch.Tensor = filter_1d
@@ -335,7 +334,8 @@ def get_spatial_gradient_kernel3d(
     mode: str, order: int, device=torch.device("cpu"), dtype=torch.float
 ) -> torch.Tensor:
     r"""Function that returns kernel for 1st or 2nd order scale pyramid gradients, using one of the following
-    operators: sobel, diff."""
+    operators: sobel, diff.
+    """
     if mode not in ["sobel", "diff"]:
         raise TypeError(
             f"mode should be either sobel\
@@ -374,7 +374,6 @@ def get_gaussian_kernel1d(
         - Output: :math:`(\text{kernel_size})`
 
     Examples:
-
         >>> get_gaussian_kernel1d(3, 2.5)
         tensor([0.3243, 0.3513, 0.3243])
 
@@ -411,7 +410,6 @@ def get_gaussian_discrete_kernel1d(
         - Output: :math:`(\text{kernel_size})`
 
     Examples:
-
         >>> get_gaussian_discrete_kernel1d(3, 2.5)
         tensor([0.3235, 0.3531, 0.3235])
 
@@ -448,7 +446,6 @@ def get_gaussian_erf_kernel1d(
         - Output: :math:`(\text{kernel_size})`
 
     Examples:
-
         >>> get_gaussian_erf_kernel1d(3, 2.5)
         tensor([0.3245, 0.3511, 0.3245])
 

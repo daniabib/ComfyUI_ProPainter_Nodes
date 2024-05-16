@@ -7,6 +7,8 @@ from torchvision.transforms.functional import to_pil_image
 
 from numpy.typing import NDArray
 
+from ..propainter_inference import ProPainterConfig
+
 
 class Stack:
     def __init__(self, roll=False):
@@ -29,9 +31,7 @@ class Stack:
 
 
 class ToTorchFormatTensor:
-    """Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]
-    to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]
-    """
+    """Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]."""
 
     # TODO: Check how this function is working with the comfy workflow.
     def __init__(self, div=True):
@@ -53,33 +53,17 @@ class ToTorchFormatTensor:
 
 
 def resize_images(
-    images: list[Image.Image], input_size: tuple[int, int], output_size: tuple[int, int]
-) -> tuple[list[Image.Image], tuple[int, int]]:
-    """Resizes each image in the list to a new size divisible by 8.
+    images: list[Image.Image], config: ProPainterConfig
+) -> list[Image.Image]:
+    """Resizes each image in the list to a new size divisible by 8."""
+    if config.process_size != config.input_size:
+        images = [f.resize(config.process_size) for f in images]
 
-    Returns:
-        A list of resized images with dimensions divisible by 8 and process size.
-    """
-    process_size = (
-        output_size[0] - output_size[0] % 8,
-        output_size[1] - output_size[1] % 8,
-    )
-
-    if process_size != input_size:
-        images = [f.resize(process_size) for f in images]
-
-    return images, process_size
+    return images
 
 
 def convert_image_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """Convert a batch of PyTorch tensors into a list of PIL Image frames
-
-    Args:
-    images (torch.Tensor): A batch of images represented as tensors.
-
-    Returns:
-    List[Image]: A list of images converted to PIL
-    """
+    """Convert a batch of PyTorch tensors into a list of PIL Image frames."""
     frames = []
     for image in images:
         torch_frame = image.detach().cpu()
@@ -99,14 +83,7 @@ def binary_mask(mask: np.ndarray, th: float = 0.1) -> np.ndarray:
 
 
 def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
-    """Convert a batch of PyTorch tensors into a list of PIL Image frames
-
-    Args:
-    images (torch.Tensor): A batch of images represented as tensors.
-
-    Returns:
-    List[Image.Image]: A list of images converted to PIL
-    """
+    """Convert a batch of PyTorch tensors into a list of PIL Image frames."""
     frames = []
     for image in images:
         image = image.detach().cpu()
@@ -122,16 +99,11 @@ def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
 
 
 def read_masks(
-    masks: torch.Tensor,
-    input_size: tuple[int, int],
-    output_size: tuple[int, int],
-    length,
-    flow_mask_dilates=8,
-    mask_dilates=5,
+    masks: torch.Tensor, config: ProPainterConfig
 ) -> tuple[list[Image.Image], list[Image.Image]]:
     """TODO: Docstring."""
     mask_imgs = convert_mask_to_frames(masks)
-    mask_imgs, _ = resize_images(mask_imgs, input_size, output_size)
+    mask_imgs = resize_images(mask_imgs, config)
     masks_dilated = []
     flow_masks = []
 
@@ -139,25 +111,25 @@ def read_masks(
         mask_img = np.array(mask_img.convert("L"))
 
         # Dilate 8 pixel so that all known pixel is trustworthy
-        if flow_mask_dilates > 0:
+        if config.flow_mask_dilates > 0:
             flow_mask_img = scipy.ndimage.binary_dilation(
-                mask_img, iterations=flow_mask_dilates
+                mask_img, iterations=config.flow_mask_dilates
             ).astype(np.uint8)
         else:
             flow_mask_img = binary_mask(mask_img).astype(np.uint8)
         flow_masks.append(Image.fromarray(flow_mask_img * 255))
 
-        if mask_dilates > 0:
+        if config.mask_dilates > 0:
             mask_img = scipy.ndimage.binary_dilation(
-                mask_img, iterations=mask_dilates
+                mask_img, iterations=config.mask_dilates
             ).astype(np.uint8)
         else:
             mask_img = binary_mask(mask_img).astype(np.uint8)
         masks_dilated.append(Image.fromarray(mask_img * 255))
 
     if len(mask_imgs) == 1:
-        flow_masks = flow_masks * length
-        masks_dilated = masks_dilated * length
+        flow_masks = flow_masks * config.length
+        masks_dilated = masks_dilated * config.length
 
     return flow_masks, masks_dilated
 

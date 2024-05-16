@@ -6,8 +6,7 @@ torch.pi = torch.acos(torch.zeros(1)).item() * 2  # which is 3.1415927410125732
 
 @torch.no_grad()
 def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
-    """
-    Converts a flow to an RGB image.
+    """Converts a flow to an RGB image.
 
     Args:
         flow (Tensor): Flow of shape (N, 2, H, W) or (2, H, W) and dtype torch.float.
@@ -16,7 +15,6 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
         img (Tensor): Image Tensor of dtype uint8 where each color corresponds
             to a given flow direction. Shape is (N, 3, H, W) or (3, H, W) depending on the input.
     """
-
     if flow.dtype != torch.float:
         raise ValueError(f"Flow should be of dtype torch.float, got {flow.dtype}.")
 
@@ -41,15 +39,14 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
-    """
-    Converts a batch of normalized flow to an RGB image.
+    """Converts a batch of normalized flow to an RGB image.
 
     Args:
         normalized_flow (torch.Tensor): Normalized flow tensor of shape (N, 2, H, W)
+
     Returns:
        img (Tensor(N, 3, H, W)): Flow visualization image of dtype uint8.
     """
-
     N, _, H, W = normalized_flow.shape
     device = normalized_flow.device
     flow_image = torch.zeros((N, 3, H, W), dtype=torch.uint8, device=device)
@@ -78,15 +75,13 @@ def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def _make_colorwheel() -> torch.Tensor:
-    """
-    Generates a color wheel for optical flow visualization as presented in:
+    """Generates a color wheel for optical flow visualization as presented in:
     Baker et al. "A Database and Evaluation Methodology for Optical Flow" (ICCV, 2007)
     URL: http://vision.middlebury.edu/flow/flowEval-iccv07.pdf.
 
     Returns:
         colorwheel (Tensor[55, 3]): Colorwheel Tensor.
     """
-
     RY = 15
     YG = 6
     GC = 4
