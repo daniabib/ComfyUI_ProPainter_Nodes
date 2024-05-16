@@ -1,16 +1,17 @@
-import numpy as np
 import torch
 
 from comfy import model_management
 
 from .propainter_inference import (
     ProPainterConfig,
-    compute_flow,
-    complete_flow,
-    image_propagation,
+    process_inpainting,
     feature_propagation,
 )
-from .utils.image_utils import convert_image_to_frames, prepare_frames_and_masks
+from .utils.image_utils import (
+    convert_image_to_frames,
+    prepare_frames_and_masks,
+    handle_output,
+)
 from .utils.model_utils import initialize_models
 
 
@@ -104,11 +105,6 @@ class ProPainterInpaint:
             input_size,
         )
 
-        # Use fp16 precision during inference to reduce running memory cost
-        use_half = node_config.fp16 == "enable"
-        if device == torch.device("cpu"):
-            use_half = False
-
         frames, flow_masks, masks_dilated, original_frames = prepare_frames_and_masks(
             frames, mask, node_config, device
         )
@@ -116,28 +112,18 @@ class ProPainterInpaint:
         raft_model, flow_model, inpaint_model = initialize_models(device)
         print(f"\nProcessing  {node_config.video_length} frames...")
 
-        with torch.no_grad():
-            gt_flows_bi = compute_flow(raft_model, frames, node_config)
+        updated_frames, updated_masks, pred_flows_bi = process_inpainting(
+            frames,
+            flow_masks,
+            masks_dilated,
+            node_config,
+            raft_model,
+            flow_model,
+            inpaint_model,
+            device,
+        )
 
-            if use_half:
-                frames, flow_masks, masks_dilated = (
-                    frames.half(),
-                    flow_masks.half(),
-                    masks_dilated.half(),
-                )
-                gt_flows_bi = (gt_flows_bi[0].half(), gt_flows_bi[1].half())
-                flow_model = flow_model.half()
-                inpaint_model = inpaint_model.half()
-
-            pred_flows_bi = complete_flow(
-                flow_model, gt_flows_bi, flow_masks, node_config.subvideo_length
-            )
-
-            updated_frames, updated_masks = image_propagation(
-                inpaint_model, frames, masks_dilated, pred_flows_bi, node_config
-            )
-
-        comp_frames = feature_propagation(
+        composed_frames = feature_propagation(
             inpaint_model,
             updated_frames,
             updated_masks,
@@ -147,16 +133,7 @@ class ProPainterInpaint:
             node_config,
         )
 
-        output_frames = [
-            torch.from_numpy(frame.astype(np.float32) / 255.0) for frame in comp_frames
-        ]
-
-        output_frames = torch.stack(output_frames)
-
-        output_flow_masks = flow_masks.squeeze()
-        output_masks_dilated = masks_dilated.squeeze()
-
-        return (output_frames, output_flow_masks, output_masks_dilated)
+        return handle_output(composed_frames, flow_masks, masks_dilated)
 
 
 NODE_CLASS_MAPPINGS = {"ProPainterInpaint": ProPainterInpaint}

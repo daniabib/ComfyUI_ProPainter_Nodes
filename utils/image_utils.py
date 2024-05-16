@@ -153,3 +153,16 @@ def prepare_frames_and_masks(frames, mask, node_config, device):
         masks_dilated.to(device),
     )
     return frames, flow_masks, masks_dilated, original_frames
+
+
+def handle_output(composed_frames, flow_masks, masks_dilated):
+    output_frames = [
+        torch.from_numpy(frame.astype(np.float32) / 255.0) for frame in composed_frames
+    ]
+
+    output_frames = torch.stack(output_frames)
+
+    output_flow_masks = flow_masks.squeeze()
+    output_masks_dilated = masks_dilated.squeeze()
+    
+    return output_frames, output_flow_masks, output_masks_dilated

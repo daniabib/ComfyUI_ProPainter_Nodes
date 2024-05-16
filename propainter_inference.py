@@ -12,13 +12,6 @@ from numpy.typing import NDArray
 
 
 @dataclass
-class FlowConfig:
-    raft_model: RAFT_bi
-    frames: torch.Tensor
-    raft_iter: int
-
-
-@dataclass
 class ProPainterConfig:
     width: int
     height: int
@@ -315,3 +308,40 @@ def feature_propagation(
         torch.cuda.empty_cache()
 
     return comp_frames
+
+
+def process_inpainting(
+    frames,
+    flow_masks,
+    masks_dilated,
+    node_config,
+    raft_model,
+    flow_model,
+    inpaint_model,
+    device,
+):
+    use_half = node_config.fp16 == "enable"
+    if device == torch.device("cpu"):
+        use_half = False
+
+    with torch.no_grad():
+        gt_flows_bi = compute_flow(raft_model, frames, node_config)
+
+        if use_half:
+            frames, flow_masks, masks_dilated = (
+                frames.half(),
+                flow_masks.half(),
+                masks_dilated.half(),
+            )
+            gt_flows_bi = (gt_flows_bi[0].half(), gt_flows_bi[1].half())
+            flow_model = flow_model.half()
+            inpaint_model = inpaint_model.half()
+
+        pred_flows_bi = complete_flow(
+            flow_model, gt_flows_bi, flow_masks, node_config.subvideo_length
+        )
+
+        updated_frames, updated_masks = image_propagation(
+            inpaint_model, frames, masks_dilated, pred_flows_bi, node_config
+        )
+    return updated_frames, updated_masks, pred_flows_bi
