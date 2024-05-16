@@ -128,8 +128,8 @@ def read_masks(
         masks_dilated.append(Image.fromarray(mask_img * 255))
 
     if len(mask_imgs) == 1:
-        flow_masks = flow_masks * config.length
-        masks_dilated = masks_dilated * config.length
+        flow_masks = flow_masks * config.video_length
+        masks_dilated = masks_dilated * config.video_length
 
     return flow_masks, masks_dilated
 

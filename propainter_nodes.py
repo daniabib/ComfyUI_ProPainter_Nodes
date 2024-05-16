@@ -83,7 +83,7 @@ class ProPainterInpaint:
         subvideo_length: int,
         raft_iter: int,
         fp16: str,
-    ) -> tuple[torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
         device = model_management.get_torch_device()
 
