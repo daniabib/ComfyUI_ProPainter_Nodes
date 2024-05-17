@@ -1,16 +1,16 @@
-import torch
-import scipy
 import numpy as np
+import scipy
+import torch
+from numpy.typing import NDArray
 from PIL import Image
 from torchvision import transforms
 from torchvision.transforms.functional import to_pil_image
-
-from numpy.typing import NDArray
 
 from ..propainter_inference import ProPainterConfig
 
 
 class Stack:
+    """Stack images based on number of channels."""
     def __init__(self, roll=False):
         self.roll = roll
 
@@ -21,19 +21,17 @@ class Stack:
             mode = "L"
         if mode == "L":
             return np.stack([np.expand_dims(x, 2) for x in img_group], axis=2)
-        elif mode == "RGB":
+        if mode == "RGB":
             if self.roll:
                 return np.stack([np.array(x)[:, :, ::-1] for x in img_group], axis=2)
-            else:
-                return np.stack(img_group, axis=2)
-        else:
-            raise NotImplementedError(f"Image mode {mode}")
+            return np.stack(img_group, axis=2)
+        raise NotImplementedError(f"Image mode {mode}")
 
 
 class ToTorchFormatTensor:
     """Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0]."""
 
-    # TODO: Check how this function is working with the comfy workflow.
+    # TODO: Check if this function is necessary with comfyUI workflow.
     def __init__(self, div=True):
         self.div = div
 

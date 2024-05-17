@@ -1,6 +1,7 @@
 import os
-from torch.hub import download_url_to_file, get_dir
 from urllib.parse import urlparse
+
+from torch.hub import download_url_to_file, get_dir
 
 
 def load_file_from_url(

@@ -1,16 +1,15 @@
 import torch
-
 from comfy import model_management
 
 from .propainter_inference import (
     ProPainterConfig,
-    process_inpainting,
     feature_propagation,
+    process_inpainting,
 )
 from .utils.image_utils import (
     convert_image_to_frames,
-    prepare_frames_and_masks,
     handle_output,
+    prepare_frames_and_masks,
 )
 from .utils.model_utils import initialize_models
 
