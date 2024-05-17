@@ -145,6 +145,7 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+mypy.ini
 
 # ruff
 .ruff_cache/
