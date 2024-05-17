@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 
 from torch import device
@@ -6,6 +7,13 @@ from .download_utils import load_file_from_url
 from ..model.modules.flow_comp_raft import RAFT_bi
 from ..model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from ..model.propainter import InpaintGenerator
+
+
+@dataclass
+class Models:
+    raft_model: RAFT_bi
+    flow_model: RecurrentFlowCompleteNet
+    inpaint_model: InpaintGenerator
 
 
 pretrain_model_url = "https://github.com/sczhou/ProPainter/releases/download/v0.1.0/"
@@ -47,11 +55,14 @@ def load_inpaint_model(device: device) -> InpaintGenerator:
     return inpaint_model
 
 
-def initialize_models(
-    device: device,
-) -> tuple[RAFT_bi, RecurrentFlowCompleteNet, InpaintGenerator]:
+def initialize_models(device: device, use_half: str) -> Models:
     "Return initialized inference models."
     raft_model = load_raft_model(device)
     flow_model = load_recurrent_flow_model(device)
     inpaint_model = load_inpaint_model(device)
-    return raft_model, flow_model, inpaint_model
+
+    if use_half == "enable":
+        # raft_model = raft_model.half()
+        flow_model = flow_model.half()
+        inpaint_model = inpaint_model.half()
+    return Models(raft_model, flow_model, inpaint_model)

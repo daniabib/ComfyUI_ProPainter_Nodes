@@ -103,28 +103,26 @@ class ProPainterInpaint:
             fp16,
             video_length,
             input_size,
+            device
         )
 
         frames, flow_masks, masks_dilated, original_frames = prepare_frames_and_masks(
             frames, mask, node_config, device
         )
 
-        raft_model, flow_model, inpaint_model = initialize_models(device)
+        models = initialize_models(device, node_config.fp16)
         print(f"\nProcessing  {node_config.video_length} frames...")
 
         updated_frames, updated_masks, pred_flows_bi = process_inpainting(
+            models,
             frames,
             flow_masks,
             masks_dilated,
             node_config,
-            raft_model,
-            flow_model,
-            inpaint_model,
-            device,
         )
 
         composed_frames = feature_propagation(
-            inpaint_model,
+            models.inpaint_model,
             updated_frames,
             updated_masks,
             masks_dilated,
