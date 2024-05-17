@@ -102,32 +102,32 @@ def read_masks(
     masks: torch.Tensor, config: ProPainterConfig
 ) -> tuple[list[Image.Image], list[Image.Image]]:
     """TODO: Docstring."""
-    mask_imgs = convert_mask_to_frames(masks)
-    mask_imgs = resize_images(mask_imgs, config)
-    masks_dilated = []
-    flow_masks = []
+    mask_images = convert_mask_to_frames(masks)
+    mask_images = resize_images(mask_images, config)
+    masks_dilated: list[Image.Image] = []
+    flow_masks: list[Image.Image] = []
 
-    for mask_img in mask_imgs:
-        mask_img = np.array(mask_img.convert("L"))
+    for mask_image in mask_images:
+        mask_array = np.array(mask_image.convert("L"))
 
         # Dilate 8 pixel so that all known pixel is trustworthy
         if config.flow_mask_dilates > 0:
             flow_mask_img = scipy.ndimage.binary_dilation(
-                mask_img, iterations=config.flow_mask_dilates
+                mask_array, iterations=config.flow_mask_dilates
             ).astype(np.uint8)
         else:
-            flow_mask_img = binary_mask(mask_img).astype(np.uint8)
+            flow_mask_img = binary_mask(mask_array).astype(np.uint8)
         flow_masks.append(Image.fromarray(flow_mask_img * 255))
 
         if config.mask_dilates > 0:
-            mask_img = scipy.ndimage.binary_dilation(
-                mask_img, iterations=config.mask_dilates
+            mask_array = scipy.ndimage.binary_dilation(
+                mask_array, iterations=config.mask_dilates
             ).astype(np.uint8)
         else:
-            mask_img = binary_mask(mask_img).astype(np.uint8)
-        masks_dilated.append(Image.fromarray(mask_img * 255))
+            mask_array = binary_mask(mask_array).astype(np.uint8)
+        masks_dilated.append(Image.fromarray(mask_array * 255))
 
-    if len(mask_imgs) == 1:
+    if len(mask_images) == 1:
         flow_masks = flow_masks * config.video_length
         masks_dilated = masks_dilated * config.video_length
 
@@ -138,31 +138,41 @@ def to_tensors():
     return transforms.Compose([Stack(), ToTorchFormatTensor()])
 
 
-def prepare_frames_and_masks(frames, mask, node_config, device):
+def prepare_frames_and_masks(
+    frames: list[Image.Image],
+    mask: torch.Tensor,
+    node_config: ProPainterConfig,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, list[NDArray]]:
     frames = resize_images(frames, node_config)
 
     flow_masks, masks_dilated = read_masks(mask, node_config)
 
-    original_frames = [np.array(f).astype(np.uint8) for f in frames]
-    frames: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1
-    flow_masks: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
-    masks_dilated: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
-    frames, flow_masks, masks_dilated = (
-        frames.to(device),
-        flow_masks.to(device),
-        masks_dilated.to(device),
+    # original_frames = [np.array(f).astype(np.uint8) for f in frames]
+    original_frames = [np.array(f) for f in frames]
+    frames_tensor: torch.Tensor = to_tensors()(frames).unsqueeze(0) * 2 - 1
+    flow_masks_tensor: torch.Tensor = to_tensors()(flow_masks).unsqueeze(0)
+    masks_dilated_tensor: torch.Tensor = to_tensors()(masks_dilated).unsqueeze(0)
+    frames_tensor, flow_masks_tensor, masks_dilated_tensor = (
+        frames_tensor.to(device),
+        flow_masks_tensor.to(device),
+        masks_dilated_tensor.to(device),
     )
-    return frames, flow_masks, masks_dilated, original_frames
+    return frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames
 
 
-def handle_output(composed_frames, flow_masks, masks_dilated):
+def handle_output(
+    composed_frames: list[NDArray],
+    flow_masks: torch.Tensor,
+    masks_dilated: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     output_frames = [
         torch.from_numpy(frame.astype(np.float32) / 255.0) for frame in composed_frames
     ]
 
-    output_frames = torch.stack(output_frames)
+    output_images = torch.stack(output_frames)
 
     output_flow_masks = flow_masks.squeeze()
     output_masks_dilated = masks_dilated.squeeze()
-    
-    return output_frames, output_flow_masks, output_masks_dilated
+
+    return output_images, output_flow_masks, output_masks_dilated

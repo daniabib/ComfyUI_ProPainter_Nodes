@@ -56,7 +56,7 @@ def load_inpaint_model(device: device) -> InpaintGenerator:
 
 
 def initialize_models(device: device, use_half: str) -> Models:
-    "Return initialized inference models."
+    """Return initialized inference models."""
     raft_model = load_raft_model(device)
     flow_model = load_recurrent_flow_model(device)
     inpaint_model = load_inpaint_model(device)

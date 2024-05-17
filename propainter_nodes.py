@@ -86,11 +86,11 @@ class ProPainterInpaint:
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
         device = model_management.get_torch_device()
-
+        # TODO: Check if this convertion from Torch to PIL is really necessary.
         frames = convert_image_to_frames(image)
         video_length = image.size(dim=0)
         input_size = frames[0].size
-
+        
         node_config = ProPainterConfig(
             width,
             height,
@@ -106,7 +106,7 @@ class ProPainterInpaint:
             device
         )
 
-        frames, flow_masks, masks_dilated, original_frames = prepare_frames_and_masks(
+        frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = prepare_frames_and_masks(
             frames, mask, node_config, device
         )
 
@@ -115,9 +115,9 @@ class ProPainterInpaint:
 
         updated_frames, updated_masks, pred_flows_bi = process_inpainting(
             models,
-            frames,
-            flow_masks,
-            masks_dilated,
+            frames_tensor,
+            flow_masks_tensor,
+            masks_dilated_tensor,
             node_config,
         )
 
@@ -125,13 +125,13 @@ class ProPainterInpaint:
             models.inpaint_model,
             updated_frames,
             updated_masks,
-            masks_dilated,
+            masks_dilated_tensor,
             pred_flows_bi,
             original_frames,
             node_config,
         )
 
-        return handle_output(composed_frames, flow_masks, masks_dilated)
+        return handle_output(composed_frames, flow_masks_tensor, masks_dilated_tensor)
 
 
 NODE_CLASS_MAPPINGS = {"ProPainterInpaint": ProPainterInpaint}

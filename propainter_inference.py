@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Union
 
 import numpy as np
 import torch
@@ -24,7 +25,7 @@ class ProPainterConfig:
     raft_iter: int
     fp16: str
     video_length: int
-    input_size: int
+    input_size: tuple[int, int]
     device: torch.device
     ouput_size: int = field(init=False)
     process_size: tuple[int, int] = field(init=False)
@@ -240,16 +241,18 @@ def feature_propagation(
     updated_masks: torch.Tensor,
     masks_dilated: torch.Tensor,
     prediction_flows: tuple[torch.Tensor, torch.Tensor],
-    original_frames: NDArray,
+    original_frames: list[NDArray],
     config: ProPainterConfig,
 ) -> list[NDArray]:
     """Propagate inpainted features across video frames.
 
     The process is segmented and handled in chunks if the video length exceeds a defined threshold.
     """
+    # TODO: Refactor function may be too
     process_width, process_height = config.process_size
 
-    comp_frames = [None] * config.video_length
+    # TODO: Refacator how composed frames is initialized
+    composed_frames: list[NDArray | None] = [None] * config.video_length
 
     neighbor_stride = config.neighbor_length // 2
     ref_num = (
@@ -303,19 +306,19 @@ def feature_propagation(
                 img = np.array(pred_img[i]).astype(np.uint8) * binary_masks[
                     i
                 ] + original_frames[idx] * (1 - binary_masks[i])
-                if comp_frames[idx] is None:
-                    comp_frames[idx] = img
+                if composed_frames[idx] is None:
+                    composed_frames[idx] = img
                 else:
-                    comp_frames[idx] = (
-                        comp_frames[idx].astype(np.float32) * 0.5
+                    composed_frames[idx] = (
+                        composed_frames[idx].astype(np.float32) * 0.5
                         + img.astype(np.float32) * 0.5
                     )
 
-                comp_frames[idx] = comp_frames[idx].astype(np.uint8)
+                composed_frames[idx] = composed_frames[idx].astype(np.uint8)
 
         torch.cuda.empty_cache()
 
-    return comp_frames
+    return composed_frames
 
 
 def process_inpainting(
