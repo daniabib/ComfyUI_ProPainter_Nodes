@@ -3,7 +3,7 @@ import os
 
 from torch import device
 
-from .download_utils import load_file_from_url
+from .download_utils import download_model
 from ..model.modules.flow_comp_raft import RAFT_bi
 from ..model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from ..model.propainter import InpaintGenerator
@@ -17,16 +17,6 @@ class Models:
 
 
 pretrain_model_url = "https://github.com/sczhou/ProPainter/releases/download/v0.1.0/"
-
-
-def download_model(model_url: str, model_name: str) -> str:
-    """Downloads a model from a URL and returns the local path to the downloaded model."""
-    return load_file_from_url(
-        url=os.path.join(model_url, model_name),
-        model_dir="custom_nodes/ComfyUI_ProPainter_Nodes/weights",
-        progress=True,
-        file_name=None,
-    )
 
 
 def load_raft_model(device: device) -> RAFT_bi:

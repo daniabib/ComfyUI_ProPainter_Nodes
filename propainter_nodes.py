@@ -90,7 +90,7 @@ class ProPainterInpaint:
         frames = convert_image_to_frames(image)
         video_length = image.size(dim=0)
         input_size = frames[0].size
-        
+
         node_config = ProPainterConfig(
             width,
             height,
@@ -103,11 +103,11 @@ class ProPainterInpaint:
             fp16,
             video_length,
             input_size,
-            device
+            device,
         )
 
-        frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = prepare_frames_and_masks(
-            frames, mask, node_config, device
+        frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = (
+            prepare_frames_and_masks(frames, mask, node_config, device)
         )
 
         models = initialize_models(device, node_config.fp16)

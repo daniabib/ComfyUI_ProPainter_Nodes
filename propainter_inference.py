@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Union
 
 import numpy as np
+from numpy.typing import NDArray
+
 import torch
 from tqdm import tqdm
 
@@ -9,8 +10,6 @@ from .model.modules.flow_comp_raft import RAFT_bi
 from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
 from .model.propainter import InpaintGenerator
 from .utils.model_utils import Models
-
-from numpy.typing import NDArray
 
 
 @dataclass
@@ -301,8 +300,8 @@ def feature_propagation(
                 .numpy()
                 .astype(np.uint8)
             )
-            for i in range(len(neighbor_ids)):
-                idx = neighbor_ids[i]
+            for i, idx in enumerate(neighbor_ids):
+                # idx = neighbor_ids[i]
                 img = np.array(pred_img[i]).astype(np.uint8) * binary_masks[
                     i
                 ] + original_frames[idx] * (1 - binary_masks[i])
