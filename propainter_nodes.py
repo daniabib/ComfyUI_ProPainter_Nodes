@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import torch
 from comfy import model_management
 
@@ -8,10 +10,11 @@ from .propainter_inference import (
     process_inpainting,
 )
 from .utils.image_utils import (
+    ImageConfig,
     convert_image_to_frames,
     handle_output,
     prepare_frames_and_masks,
-    extrapolation
+    extrapolation,
 )
 from .utils.model_utils import initialize_models
 
@@ -92,34 +95,47 @@ class ProPainterInpaint:
         video_length = image.size(dim=0)
         input_size = frames[0].size
 
-        node_config = ProPainterConfig(
-            width,
-            height,
-            mask_dilates,
-            flow_mask_dilates,
+        image_config = ImageConfig(
+            width, height, mask_dilates, flow_mask_dilates, input_size, video_length
+        )
+        inpaint_config = ProPainterConfig(
             ref_stride,
             neighbor_length,
             subvideo_length,
             raft_iter,
             fp16,
             video_length,
-            input_size,
             device,
+            image_config.process_size,
         )
+        # node_config = ProPainterConfig(
+        #     width,
+        #     height,
+        #     mask_dilates,
+        #     flow_mask_dilates,
+        #     ref_stride,
+        #     neighbor_length,
+        #     subvideo_length,
+        #     raft_iter,
+        #     fp16,
+        #     video_length,
+        #     input_size,
+        #     device,
+        # )
 
         frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = (
-            prepare_frames_and_masks(frames, mask, node_config, device)
+            prepare_frames_and_masks(frames, mask, image_config, device)
         )
 
-        models = initialize_models(device, node_config.fp16)
-        print(f"\nProcessing  {node_config.video_length} frames...")
+        models = initialize_models(device, inpaint_config.fp16)
+        print(f"\nProcessing  {inpaint_config.video_length} frames...")
 
         updated_frames, updated_masks, pred_flows_bi = process_inpainting(
             models,
             frames_tensor,
             flow_masks_tensor,
             masks_dilated_tensor,
-            node_config,
+            inpaint_config,
         )
 
         composed_frames = feature_propagation(
@@ -129,7 +145,7 @@ class ProPainterInpaint:
             masks_dilated_tensor,
             pred_flows_bi,
             original_frames,
-            node_config,
+            inpaint_config,
         )
 
         return handle_output(composed_frames, flow_masks_tensor, masks_dilated_tensor)
@@ -148,17 +164,25 @@ class ProPainterOutpaint:
                 "image": ("IMAGE",),  # --video
                 "mask": ("MASK",),  # --mask
                 "width": ("INT", {"default": 640, "min": 0, "max": 2560}),  # --width
-                "height": ("INT", {"default": 360, "min": 0, "max": 2560}), # --height
-                "width_scale": ("FLOAT", {
-                    "default": 1.0,
-                    "min": 0.0,
-                    "max": 10.0,
-                    "step": 0.01,}),
-                "height_scale": ("FLOAT", {
-                    "default": 1.0,
-                    "min": 0.0,
-                    "max": 10.0,
-                    "step": 0.01,}),  
+                "height": ("INT", {"default": 360, "min": 0, "max": 2560}),  # --height
+                "width_scale": (
+                    "FLOAT",
+                    {
+                        "default": 1.2,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.01,
+                    },
+                ),
+                "height_scale": (
+                    "FLOAT",
+                    {
+                        "default": 1.0,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.01,
+                    },
+                ),
                 "mask_dilates": (
                     "INT",
                     {"default": 5, "min": 0, "max": 100},
@@ -197,12 +221,8 @@ class ProPainterOutpaint:
         "FLOW_MASK",
         "MASK_DILATE",
     )
-    # FUNCTION = "propainter_outpainting"
-    FUNCTION = "test"
+    FUNCTION = "propainter_outpainting"
     CATEGORY = "ProPainter"
-
-    def test():
-        ...
 
     def propainter_outpainting(
         self,
@@ -244,10 +264,14 @@ class ProPainterOutpaint:
             device,
         )
 
-        paded_frames, paded_flow_masks, paded_masks_dilated = extrapolation(frames, node_config)
-        
+        paded_frames, paded_flow_masks, paded_masks_dilated = extrapolation(
+            frames, node_config
+        )
+
         frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = (
-            prepare_frames_and_masks(paded_frames, paded_flow_masks, node_config, device)
+            prepare_frames_and_masks(
+                paded_frames, paded_flow_masks, node_config, device
+            )
         )
 
         models = initialize_models(device, node_config.fp16)

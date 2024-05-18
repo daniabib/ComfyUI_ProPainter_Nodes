@@ -16,29 +16,18 @@ from ComfyUI_ProPainter_Nodes.utils.model_utils import Models
 
 @dataclass
 class ProPainterConfig:
-    width: int
-    height: int
-    mask_dilates: int
-    flow_mask_dilates: int
     ref_stride: int
     neighbor_length: int
     subvideo_length: int
     raft_iter: int
     fp16: str
     video_length: int
-    input_size: tuple[int, int]
     device: torch.device
-    ouput_size: int = field(init=False)
-    process_size: tuple[int, int] = field(init=False)
+    process_size: tuple[int, int]
     use_half: bool = field(init=False)
 
     def __post_init__(self) -> None:
         """Initialize output size, process_size and use-half."""
-        self.output_size = (self.width, self.height)
-        self.process_size = (
-            self.output_size[0] - self.output_size[0] % 8,
-            self.output_size[1] - self.output_size[1] % 8,
-        )
         self.use_half = self.fp16 == "enable"
         if self.device == torch.device("cpu"):
             self.use_half = False
