@@ -7,7 +7,9 @@ import torch
 from tqdm import tqdm
 
 from ComfyUI_ProPainter_Nodes.model.modules.flow_comp_raft import RAFT_bi
-from ComfyUI_ProPainter_Nodes.model.recurrent_flow_completion import RecurrentFlowCompleteNet
+from ComfyUI_ProPainter_Nodes.model.recurrent_flow_completion import (
+    RecurrentFlowCompleteNet,
+)
 from ComfyUI_ProPainter_Nodes.model.propainter import InpaintGenerator
 from ComfyUI_ProPainter_Nodes.utils.model_utils import Models
 
@@ -40,6 +42,12 @@ class ProPainterConfig:
         self.use_half = self.fp16 == "enable"
         if self.device == torch.device("cpu"):
             self.use_half = False
+
+
+@dataclass
+class ProPainterOutpaintConfig(ProPainterConfig):
+    width_scale: float
+    height_scale: float
 
 
 def get_ref_index(

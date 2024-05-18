@@ -6,7 +6,7 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.transforms.functional import to_pil_image
 
-from ComfyUI_ProPainter_Nodes.propainter_inference import ProPainterConfig
+from ComfyUI_ProPainter_Nodes.propainter_inference import ProPainterConfig, ProPainterOutpaintConfig
 
 
 class Stack:
@@ -80,6 +80,46 @@ def binary_mask(mask: np.ndarray, th: float = 0.1) -> np.ndarray:
 
     return mask
 
+def extrapolation(frames: list[Image.Image], config: ProPainterOutpaintConfig):
+    """Prepares the data for video outpainting."""
+    nFrame = len(frames)
+    imgW, imgH = frames[0].size
+
+    # Defines new FOV.
+    imgH_extr = int(config.height_scale * imgH)
+    imgW_extr = int(config.width_scale * imgW)
+    imgH_extr = imgH_extr - imgH_extr % 8
+    imgW_extr = imgW_extr - imgW_extr % 8
+    H_start = int((imgH_extr - imgH) / 2)
+    W_start = int((imgW_extr - imgW) / 2)
+
+    # Extrapolates the FOV for video.
+    frames = []
+    for v in frames:
+        frame = np.zeros(((imgH_extr, imgW_extr, 3)), dtype=np.uint8)
+        frame[H_start: H_start + imgH, W_start: W_start + imgW, :] = v
+        frames.append(Image.fromarray(frame))
+
+    # Generates the mask for missing region.
+    masks_dilated = []
+    flow_masks = []
+    
+    dilate_h = 4 if H_start > 10 else 0
+    dilate_w = 4 if W_start > 10 else 0
+    mask = np.ones(((imgH_extr, imgW_extr)), dtype=np.uint8)
+    
+    mask[H_start+dilate_h: H_start+imgH-dilate_h, 
+         W_start+dilate_w: W_start+imgW-dilate_w] = 0
+    flow_masks.append(Image.fromarray(mask * 255))
+
+    mask[H_start: H_start+imgH, W_start: W_start+imgW] = 0
+    masks_dilated.append(Image.fromarray(mask * 255))
+  
+    flow_masks = flow_masks * nFrame
+    masks_dilated = masks_dilated * nFrame
+    config.output_size (imgW_extr, imgH_extr)
+    return frames, flow_masks, masks_dilated, 
+
 
 def convert_mask_to_frames(images: torch.Tensor) -> list[Image.Image]:
     """Convert a batch of PyTorch tensors into a list of PIL Image frames."""
@@ -140,12 +180,12 @@ def to_tensors():
 def prepare_frames_and_masks(
     frames: list[Image.Image],
     mask: torch.Tensor,
-    node_config: ProPainterConfig,
+    config: ProPainterConfig,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, list[NDArray]]:
-    frames = resize_images(frames, node_config)
+    frames = resize_images(frames, config)
 
-    flow_masks, masks_dilated = read_masks(mask, node_config)
+    flow_masks, masks_dilated = read_masks(mask, config)
 
     # original_frames = [np.array(f).astype(np.uint8) for f in frames]
     original_frames = [np.array(f) for f in frames]
