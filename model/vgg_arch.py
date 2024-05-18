@@ -1,8 +1,8 @@
 import os
 import torch
 from collections import OrderedDict
-from torch import nn as nn
-from torchvision.models import vgg as vgg
+from torch import nn
+from torchvision.models import vgg
 
 VGG_PRETRAIN_PATH = "experiments/pretrained_models/vgg19-dcbb9e9d.pth"
 NAMES = {

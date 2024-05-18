@@ -6,10 +6,10 @@ from numpy.typing import NDArray
 import torch
 from tqdm import tqdm
 
-from .model.modules.flow_comp_raft import RAFT_bi
-from .model.recurrent_flow_completion import RecurrentFlowCompleteNet
-from .model.propainter import InpaintGenerator
-from .utils.model_utils import Models
+from ComfyUI_ProPainter_Nodes.model.modules.flow_comp_raft import RAFT_bi
+from ComfyUI_ProPainter_Nodes.model.recurrent_flow_completion import RecurrentFlowCompleteNet
+from ComfyUI_ProPainter_Nodes.model.propainter import InpaintGenerator
+from ComfyUI_ProPainter_Nodes.utils.model_utils import Models
 
 
 @dataclass

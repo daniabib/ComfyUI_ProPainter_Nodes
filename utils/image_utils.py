@@ -6,11 +6,12 @@ from PIL import Image
 from torchvision import transforms
 from torchvision.transforms.functional import to_pil_image
 
-from ..propainter_inference import ProPainterConfig
+from ComfyUI_ProPainter_Nodes.propainter_inference import ProPainterConfig
 
 
 class Stack:
     """Stack images based on number of channels."""
+
     def __init__(self, roll=False):
         self.roll = roll
 
