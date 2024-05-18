@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 import torch
 from comfy import model_management
 
@@ -108,20 +106,6 @@ class ProPainterInpaint:
             device,
             image_config.process_size,
         )
-        # node_config = ProPainterConfig(
-        #     width,
-        #     height,
-        #     mask_dilates,
-        #     flow_mask_dilates,
-        #     ref_stride,
-        #     neighbor_length,
-        #     subvideo_length,
-        #     raft_iter,
-        #     fp16,
-        #     video_length,
-        #     input_size,
-        #     device,
-        # )
 
         frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = (
             prepare_frames_and_masks(frames, mask, image_config, device)
