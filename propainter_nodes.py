@@ -18,6 +18,20 @@ from .utils.image_utils import (
 from .utils.model_utils import initialize_models
 
 
+def check_inputs(frames: torch.Tensor, masks: torch.Tensor) -> Exception | None:
+    if frames.size(dim=0) != masks.size(dim=0) and masks.size(dim=0) != 1:
+        raise Exception(f"""Image and Mask must have the same length or Mask have length 1, but got:
+                        Image length: {frames.size(dim=0)}
+                        Mask length: {masks.size(dim=0)}""")
+
+    if frames.size(dim=1) != masks.size(dim=1) or frames.size(dim=2) != masks.size(
+        dim=2
+    ):
+        raise Exception(f"""Image and Mask must have the same dimensions, but got:
+                        Image: ({frames.size(dim=1)}, {frames.size(dim=2)})
+                        Mask: ({masks.size(dim=1)}, {masks.size(dim=2)})""")
+
+
 class ProPainterInpaint:
     """ComfyUI Node for performing inpainting on video frames using ProPainter."""
 
@@ -88,6 +102,7 @@ class ProPainterInpaint:
         fp16: str,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
+        check_inputs(image, mask)
         device = model_management.get_torch_device()
         # TODO: Check if this convertion from Torch to PIL is really necessary.
         frames = convert_image_to_frames(image)
