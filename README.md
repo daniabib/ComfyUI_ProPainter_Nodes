@@ -1,6 +1,6 @@
 # 🎨 ProPainter Nodes for ComfyUI
 
-This repository contains custom nodes for ComfyUI implementing ProPainter models for video inpainting and outpainting. The ProPainter models enable advanced video frame editing by leveraging deep learning techniques for seamless inpainting and outpainting tasks.
+[ComfyUI](https://github.com/comfyanonymous/ComfyUI) implementation of [ProPainter](https://github.com/sczhou/ProPainter) models for video inpainting   . The ProPainter models enable advanced video frame editing by leveraging deep learning techniques for seamless inpainting and outpainting tasks.
 
 ## ✨ Features
 
@@ -35,9 +35,9 @@ The ProPainter Inpainting node performs inpainting on video frames, filling in m
 
 #### Input Parameters:
 - `image` (🖼️ IMAGE): The video frames to be inpainted.
-- `mask` (🎭 MASK): The mask indicating the regions to be inpainted.
-- `width` (🔢 INT): Width of the video frames (default: 640).
-- `height` (🔢 INT): Height of the video frames (default: 360).
+- `mask` (🎭 MASK): The mask indicating the regions to be inpainted. Mask must have same size of video frames.
+- `width` (🔢 INT): Width of the output images. (default: 640).
+- `height` (🔢 INT): Height of the output images. (default: 360).
 - `mask_dilates` (🔢 INT): Dilation size for the mask (default: 5).
 - `flow_mask_dilates` (🔢 INT): Dilation size for the flow mask (default: 8).
 - `ref_stride` (🔢 INT): Stride for reference frames (default: 10).
