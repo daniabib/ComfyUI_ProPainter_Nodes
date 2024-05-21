@@ -5,7 +5,10 @@ from torch.hub import download_url_to_file, get_dir
 
 
 def load_file_from_url(
-    url: str, model_dir: str = None, progress: bool = True, file_name: str = None
+    url: str,
+    model_dir: str | None = None,
+    progress: bool = True,
+    file_name: str | None = None,
 ) -> str:
     """Load file form http url, will download models if necessary."""
     if model_dir is None:  # use the pytorch hub_dir

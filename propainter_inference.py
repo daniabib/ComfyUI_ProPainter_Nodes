@@ -6,12 +6,12 @@ from numpy.typing import NDArray
 import torch
 from tqdm import tqdm
 
-from ComfyUI_ProPainter_Nodes.model.modules.flow_comp_raft import RAFT_bi
-from ComfyUI_ProPainter_Nodes.model.recurrent_flow_completion import (
+from .model.modules.flow_comp_raft import RAFT_bi
+from .model.recurrent_flow_completion import (
     RecurrentFlowCompleteNet,
 )
-from ComfyUI_ProPainter_Nodes.model.propainter import InpaintGenerator
 from ComfyUI_ProPainter_Nodes.utils.model_utils import Models
+from .model.propainter import InpaintGenerator
 
 
 @dataclass
@@ -27,16 +27,10 @@ class ProPainterConfig:
     use_half: bool = field(init=False)
 
     def __post_init__(self) -> None:
-        """Initialize output size, process_size and use-half."""
+        """Initialize use-half."""
         self.use_half = self.fp16 == "enable"
         if self.device == torch.device("cpu"):
             self.use_half = False
-
-
-@dataclass
-class ProPainterOutpaintConfig(ProPainterConfig):
-    width_scale: float
-    height_scale: float
 
 
 def get_ref_index(

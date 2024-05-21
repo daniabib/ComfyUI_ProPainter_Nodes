@@ -3,16 +3,17 @@ from comfy import model_management
 
 from .propainter_inference import (
     ProPainterConfig,
-    ProPainterOutpaintConfig,
     feature_propagation,
     process_inpainting,
 )
 from .utils.image_utils import (
     ImageConfig,
+    ImageOutpaintConfig,
     convert_image_to_frames,
     handle_output,
     prepare_frames_and_masks,
     extrapolation,
+    prepare_frames_and_masks_for_outpaint,
 )
 from .utils.model_utils import initialize_models
 
@@ -146,7 +147,6 @@ class ProPainterOutpaint:
         return {
             "required": {
                 "image": ("IMAGE",),  # --video
-                "mask": ("MASK",),  # --mask
                 "width": ("INT", {"default": 640, "min": 0, "max": 2560}),  # --width
                 "height": ("INT", {"default": 360, "min": 0, "max": 2560}),  # --height
                 "width_scale": (
@@ -198,12 +198,14 @@ class ProPainterOutpaint:
     RETURN_TYPES = (
         "IMAGE",
         "MASK",
-        "MASK",
+        "INT",
+        "INT",
     )
     RETURN_NAMES = (
         "IMAGE",
-        "FLOW_MASK",
-        "MASK_DILATE",
+        "OUTPAINT_MASK",
+        "output_width",
+        "output_height",
     )
     FUNCTION = "propainter_outpainting"
     CATEGORY = "ProPainter"
@@ -211,7 +213,6 @@ class ProPainterOutpaint:
     def propainter_outpainting(
         self,
         image: torch.Tensor,
-        mask: torch.Tensor,
         width: int,
         height: int,
         width_scale: float,
@@ -223,7 +224,7 @@ class ProPainterOutpaint:
         subvideo_length: int,
         raft_iter: int,
         fp16: str,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, int, int]:
         """Perform inpainting on images input using the ProPainter model inference."""
         device = model_management.get_torch_device()
         # TODO: Check if this convertion from Torch to PIL is really necessary.
@@ -231,42 +232,47 @@ class ProPainterOutpaint:
         video_length = image.size(dim=0)
         input_size = frames[0].size
 
-        node_config = ProPainterOutpaintConfig(
+        image_config = ImageOutpaintConfig(
             width,
             height,
-            width_scale,
-            height_scale,
             mask_dilates,
             flow_mask_dilates,
+            input_size,
+            video_length,
+            width_scale,
+            height_scale,
+        )
+
+        outpaint_config = ProPainterConfig(
             ref_stride,
             neighbor_length,
             subvideo_length,
             raft_iter,
             fp16,
             video_length,
-            input_size,
             device,
+            image_config.outpaint_size,
         )
 
         paded_frames, paded_flow_masks, paded_masks_dilated = extrapolation(
-            frames, node_config
+            frames, image_config
         )
 
         frames_tensor, flow_masks_tensor, masks_dilated_tensor, original_frames = (
-            prepare_frames_and_masks(
-                paded_frames, paded_flow_masks, node_config, device
+            prepare_frames_and_masks_for_outpaint(
+                paded_frames, paded_flow_masks, paded_masks_dilated, device
             )
         )
 
-        models = initialize_models(device, node_config.fp16)
-        print(f"\nProcessing  {node_config.video_length} frames...")
+        models = initialize_models(device, outpaint_config.fp16)
+        print(f"\nProcessing  {outpaint_config.video_length} frames...")
 
         updated_frames, updated_masks, pred_flows_bi = process_inpainting(
             models,
             frames_tensor,
             flow_masks_tensor,
             masks_dilated_tensor,
-            node_config,
+            outpaint_config,
         )
 
         composed_frames = feature_propagation(
@@ -276,10 +282,14 @@ class ProPainterOutpaint:
             masks_dilated_tensor,
             pred_flows_bi,
             original_frames,
-            node_config,
+            outpaint_config,
         )
 
-        return handle_output(composed_frames, flow_masks_tensor, masks_dilated_tensor)
+        output_frames, output_masks, _ = handle_output(
+            composed_frames, flow_masks_tensor, masks_dilated_tensor
+        )
+        output_width, output_height = outpaint_config.process_size
+        return output_frames, output_masks, output_width, output_height
 
 
 NODE_CLASS_MAPPINGS = {
