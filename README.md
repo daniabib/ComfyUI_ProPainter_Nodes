@@ -79,26 +79,4 @@ The ProPainter Outpainting node extends the boundaries of video frames, generati
 
 Here is an example of how to use the ProPainter Inpainting node:
 
-```python
-from propainter_nodes import ProPainterInpaint
 
-# Initialize the inpainting node
-inpaint_node = ProPainterInpaint()
-
-# Define input parameters
-input_params = {
-    "image": input_video_tensor,
-    "mask": input_mask_tensor,
-    "width": 640,
-    "height": 360,
-    "mask_dilates": 5,
-    "flow_mask_dilates": 8,
-    "ref_stride": 10,
-    "neighbor_length": 10,
-    "subvideo_length": 80,
-    "raft_iter": 20,
-    "fp16": "disable"
-}
-
-# Perform inpainting
-output_image, flow_mask, mask_dilate = inpaint_node.propainter_inpainting(**input_params)
