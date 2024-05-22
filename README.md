@@ -4,13 +4,36 @@
 
 ## Features
 
-- **Inpainting**: Fill in missing regions in video frames using the ProPainter model.
-- **Outpainting**: Expand the boundaries of video frames by synthesizing realistic content beyond the original frame edges.
+#### 👨🏻‍🎨 Object Removal
+<table>
+<tr>
+   <td> 
+      <img src="assets/bike_original.gif">
+   </td>
+   <td> 
+      <img src="assets/bike_inpaint.gif">
+   </td>
+</tr>
+</table>
+
+#### 🎨 Video Completion
+<table>
+<tr>
+   <td> 
+      <img src="assets/bovary_damaged.gif">
+   </td>
+   <td> 
+      <img src="assets/bovary_inpaint.gif">
+   </td>
+</tr>
+</table>
 
 ## Installation
+### ComfyUI Manager:
+You can use [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager) to install the nodes:
+1. Search for `ComfyUI ProPainter Nodes` and author `daniabib`. 
 
 ### Manual Installation:
-
 1. Clone this repository to `ComfyUI/custom_nodes`:
     ```bash
     git clone https://github.com/yourusername/ComfyUI-ProPainter-Nodes.git
@@ -21,7 +44,10 @@
     pip install -r requirements.txt
     ```
 
-## Workflow example
+Models will be automatically downloaded to the `weights` folder.
+
+## Examples
+**Basic Inpainting Workflow**
 
 
 ## Nodes Reference
@@ -72,5 +98,8 @@ The ProPainter Outpainting node extends the boundaries of video frames, generati
 - `output_width`: The width of the outpainted frames.
 - `output_height`: The height of the outpainted frames.
 
+## Others suggested nodes
+I suggest using [VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite) for loading and saving the video frames.
 
-
+## License
+The ProPainter models and code are licensed under [NTU S-Lab License 1.0](https://github.com/sczhou/ProPainter/blob/main/LICENSE).
