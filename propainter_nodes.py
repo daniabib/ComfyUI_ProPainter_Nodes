@@ -17,8 +17,13 @@ from .utils.image_utils import (
 )
 from .utils.model_utils import initialize_models
 
+from icecream import ic
+
 
 def check_inputs(frames: torch.Tensor, masks: torch.Tensor) -> Exception | None:
+    if frames.size(dim=0) <= 1:
+        raise Exception(f"""Image length must be greater than 1, but got:
+                        Image length: ({frames.size(dim=0)})""")
     if frames.size(dim=0) != masks.size(dim=0) and masks.size(dim=0) != 1:
         raise Exception(f"""Image and Mask must have the same length or Mask have length 1, but got:
                         Image length: {frames.size(dim=0)}
@@ -102,6 +107,8 @@ class ProPainterInpaint:
         fp16: str,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
+        ic(image.size())
+        ic(mask.size())
         check_inputs(image, mask)
         device = model_management.get_torch_device()
         # TODO: Check if this convertion from Torch to PIL is really necessary.
