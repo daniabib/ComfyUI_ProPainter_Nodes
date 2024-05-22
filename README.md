@@ -21,7 +21,10 @@
     pip install -r requirements.txt
     ```
 
-## 📖 Nodes Reference
+## Workflow example
+
+
+## Nodes Reference
 
 ### ProPainter Inpainting
 
