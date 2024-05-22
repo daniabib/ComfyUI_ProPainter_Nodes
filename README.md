@@ -1,6 +1,6 @@
 # ProPainter Nodes for ComfyUI
 
-[ComfyUI](https://github.com/comfyanonymous/ComfyUI) implementation of [ProPainter](https://github.com/sczhou/ProPainter) models for video inpainting   . The ProPainter models enable advanced video frame editing by leveraging deep learning techniques for seamless inpainting and outpainting tasks.
+[ComfyUI](https://github.com/comfyanonymous/ComfyUI) implementation of [ProPainter](https://github.com/sczhou/ProPainter) for video inpainting. ProPainter is a framework that utilizes flow-based propagation and spatiotemporal transformer to enable advanced video frame editing for seamless inpainting tasks.
 
 ## Features
 
@@ -49,12 +49,13 @@ Models will be automatically downloaded to the `weights` folder.
 ## Examples
 **Basic Inpainting Workflow**
 
+https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/56244d09-fe89-4af2-916b-e8d903752f0d
 
-## Nodes Reference
+https://github.com/daniabib/ComfyUI_ProPainter_Nodes/blob/main/examples/propainter-inpainting-workflow.json
 
+## Nodes Reference 
+**🚧 Section under construction**
 ### ProPainter Inpainting
-
-The ProPainter Inpainting node performs inpainting on video frames, filling in missing regions based on the surrounding content.
 
 #### Input Parameters:
 - `image`: The video frames to be inpainted.
@@ -75,8 +76,7 @@ The ProPainter Inpainting node performs inpainting on video frames, filling in m
 - `MASK_DILATE`: The dilated mask used during inpainting.
 
 ### ProPainter Outpainting
-
-The ProPainter Outpainting node extends the boundaries of video frames, generating new content beyond the original edges.
+**Note**: The authors of the paper didn't mention the outpainting task for their framework, but there is an option for it in the original code. The results aren't very good but I decided to implement a node for it anyway.
 
 #### Input Parameters:
 - `image`: The video frames to be outpainted.
