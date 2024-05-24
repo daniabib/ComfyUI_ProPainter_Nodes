@@ -17,8 +17,6 @@ from .utils.image_utils import (
 )
 from .utils.model_utils import initialize_models
 
-from icecream import ic
-
 
 def check_inputs(frames: torch.Tensor, masks: torch.Tensor) -> Exception | None:
     if frames.size(dim=0) <= 1:
@@ -107,8 +105,6 @@ class ProPainterInpaint:
         fp16: str,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Perform inpainting on images input using the ProPainter model inference."""
-        ic(image.size())
-        ic(mask.size())
         check_inputs(image, mask)
         device = model_management.get_torch_device()
         # TODO: Check if this convertion from Torch to PIL is really necessary.
