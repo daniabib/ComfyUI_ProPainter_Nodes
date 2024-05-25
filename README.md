@@ -36,7 +36,7 @@ You can use [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Manager) to in
 ### Manual Installation:
 1. Clone this repository to `ComfyUI/custom_nodes`:
     ```bash
-    git clone https://github.com/yourusername/ComfyUI-ProPainter-Nodes.git
+    git clone https://github.com/daniabib/ComfyUI_ProPainter_Nodes
     ```
 
 2. Install the required dependencies:
