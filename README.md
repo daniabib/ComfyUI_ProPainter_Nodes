@@ -8,10 +8,10 @@
 <table>
 <tr>
    <td> 
-      <img src="assets/bike_original.gif">
+      <img src="https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/10feb7fd-4368-4573-9279-3b08bfff6da6">
    </td>
    <td> 
-      <img src="assets/bike_inpaint.gif">
+      <img src="https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/48a42ba6-61de-4ca3-bdda-ad56fa9433d5">
    </td>
 </tr>
 </table>
@@ -20,10 +20,10 @@
 <table>
 <tr>
    <td> 
-      <img src="assets/bovary_damaged.gif">
+      <img src="https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/25704f66-e86c-4c1b-8c95-02e42b4ee34e">
    </td>
    <td> 
-      <img src="assets/bovary_inpaint.gif">
+      <img src="https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/5cfa7563-d935-42b6-9feb-c6afe443348e">
    </td>
 </tr>
 </table>
@@ -52,6 +52,10 @@ Models will be automatically downloaded to the `weights` folder.
 https://github.com/daniabib/ComfyUI_ProPainter_Nodes/assets/33937060/56244d09-fe89-4af2-916b-e8d903752f0d
 
 https://github.com/daniabib/ComfyUI_ProPainter_Nodes/blob/main/examples/propainter-inpainting-workflow.json
+
+## Others suggested nodes
+* [VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite) for loading and saving the video frames.
+* [ComfyUI-YoloWorld-EfficientSAM](https://github.com/ZHO-ZHO-ZHO/ComfyUI-YoloWorld-EfficientSAM) for masking images using prompt.
 
 ## Nodes Reference 
 **🚧 Section under construction**
@@ -97,9 +101,6 @@ https://github.com/daniabib/ComfyUI_ProPainter_Nodes/blob/main/examples/propaint
 - `OUTPAINT_MASK`: The mask used during outpainting.
 - `output_width`: The width of the outpainted frames.
 - `output_height`: The height of the outpainted frames.
-
-## Others suggested nodes
-I suggest using [VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite) for loading and saving the video frames.
 
 ## License
 The ProPainter models and code are licensed under [NTU S-Lab License 1.0](https://github.com/sczhou/ProPainter/blob/main/LICENSE).
