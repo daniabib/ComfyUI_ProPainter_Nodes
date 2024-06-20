@@ -1,0 +1,15 @@
+[project]
+name = "comfyui_propainter_nodes"
+description = "ComfyUI custom node implementation of [a/ProPainter](https://github.com/sczhou/ProPainter) framework for video inpainting."
+version = "1.0.0"
+license = "LICENSE"
+dependencies = ["opencv-python"]
+
+[project.urls]
+Repository = "https://github.com/daniabib/ComfyUI_ProPainter_Nodes"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "ComfyUI_ProPainter_Nodes"
+Icon = ""
