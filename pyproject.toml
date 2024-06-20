@@ -10,6 +10,6 @@ Repository = "https://github.com/daniabib/ComfyUI_ProPainter_Nodes"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "daniabib"
 DisplayName = "ComfyUI_ProPainter_Nodes"
 Icon = ""
