@@ -10,7 +10,7 @@ from .model.modules.flow_comp_raft import RAFT_bi
 from .model.recurrent_flow_completion import (
     RecurrentFlowCompleteNet,
 )
-from ComfyUI_ProPainter_Nodes.utils.model_utils import Models
+from .utils.model_utils import Models
 from .model.propainter import InpaintGenerator
 
 

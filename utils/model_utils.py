@@ -2,12 +2,12 @@ from dataclasses import dataclass
 
 import torch
 
-from ComfyUI_ProPainter_Nodes.model.modules.flow_comp_raft import RAFT_bi
-from ComfyUI_ProPainter_Nodes.model.propainter import InpaintGenerator
-from ComfyUI_ProPainter_Nodes.model.recurrent_flow_completion import (
+from ..model.modules.flow_comp_raft import RAFT_bi
+from ..model.propainter import InpaintGenerator
+from ..model.recurrent_flow_completion import (
     RecurrentFlowCompleteNet,
 )
-from ComfyUI_ProPainter_Nodes.utils.download_utils import download_model
+from ..utils.download_utils import download_model
 
 
 @dataclass
